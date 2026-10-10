@@ -21,9 +21,12 @@ pveum user add lab@pve --comment "Terraform do repo lab"
 pveum user token add lab@pve terraform --privsep 0
 ```
 
-O último comando mostra o segredo **uma vez só**. Guarde no Vaultwarden
-como `lab@pve!terraform=<segredo>`: é o `proxmox_api_token` do
-`terraform.tfvars` de cada experimento.
+O último comando mostra o segredo **uma vez só** (a coluna `value`, um
+UUID). Guarde no Vaultwarden a string inteira, `lab@pve!terraform=<UUID>`:
+ela é, sem mudar nada, o `proxmox_api_token` do `terraform.tfvars` de cada
+experimento. Prefixo repetido (`lab@pve!terraform=lab@pve!terraform=…`) dá
+`401 Authentication failed` só no `apply`: o `plan` de recurso novo nem
+chama a API.
 
 ## 2. Permissões, só o necessário
 
