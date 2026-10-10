@@ -14,7 +14,14 @@ O console exige login; não há como gerar pela CLI sem outro token de API.
 
 1. <https://login.tailscale.com/admin/settings/keys> → **Generate auth key**
 2. **Reusable:** sim (vários experimentos) · **Ephemeral:** sim (a máquina
-   some da tailnet quando morre) · **Tags:** `tag:lab` · validade: 90 dias
+   some da tailnet quando morre) · **Pre-approved:** sim · **Tags:**
+   `tag:lab` · validade: 90 dias
+
+   O *Pre-approved* importa porque a tailnet tem aprovação de dispositivo:
+   sem ele, o `tailscale up` fica em `NeedsMachineAuth` e o playbook trava
+   no "Bring Tailscale Up" até alguém clicar **Approve** em *Machines*. Não
+   abre nada a mais: a chave só cria nó com `tag:lab`, e a ACL não deixa o
+   lab alcançar a infra.
 3. Guarde no Vaultwarden como "Tailscale auth key — lab".
 
 ## Vault do lab
