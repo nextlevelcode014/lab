@@ -1,0 +1,59 @@
+---
+# Coolify numa VM do lab: Tailscale com tag:lab (auth key efêmera, do
+# vault do lab) e o instalador oficial do Coolify. O primeiro acesso é pela
+# LAN (IP do DHCP); depois, pela tailnet também.
+- name: Coolify no lab
+  hosts: coolify
+  become: true
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../vault.yml"
+
+  pre_tasks:
+    - name: Exigir a auth key do Tailscale no vault
+      ansible.builtin.assert:
+        that: vault_tailscale_authkey is defined and vault_tailscale_authkey | length > 0
+        fail_msg: >-
+          Falta vault_tailscale_authkey no vault.yml da raiz do lab
+          (docs/tailscale.md).
+      run_once: true
+
+    - name: Esperar o SSH
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+
+    # O cloud-init ainda pode estar instalando pacotes: sem esperar, o apt
+    # do role do Tailscale briga pela trava.
+    - name: Esperar o cloud-init terminar
+      ansible.builtin.command: cloud-init status --wait
+      changed_when: false
+
+    - name: Coletar fatos
+      ansible.builtin.setup:
+
+  roles:
+    - role: artis3n.tailscale.machine
+      vars:
+        tailscale_authkey: "{{ vault_tailscale_authkey }}"
+        tailscale_args: "--ssh --hostname={{ inventory_hostname }}"
+
+  tasks:
+    # O instalador põe Docker, sobe o Coolify em /data/coolify e toma as
+    # portas 80, 443 e 8000. Leia antes: /root/coolify-install.sh.
+    - name: Baixar o instalador do Coolify
+      ansible.builtin.get_url:
+        url: https://cdn.coollabs.io/coolify/install.sh
+        dest: /root/coolify-install.sh
+        mode: "0700"
+
+    - name: Instalar o Coolify
+      ansible.builtin.command: bash /root/coolify-install.sh
+      args:
+        creates: /data/coolify/source/.env
+
+    - name: Onde abrir
+      ansible.builtin.debug:
+        msg: >-
+          Painel: http://{{ ansible_host }}:8000 (LAN) ou
+          http://{{ inventory_hostname }}.<tailnet>.ts.net:8000 (tailnet).
+          Crie a conta de admin AGORA: o primeiro cadastro vira admin.

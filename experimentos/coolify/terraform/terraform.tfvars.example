@@ -1,0 +1,3 @@
+proxmox_api_token = "lab@pve!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+node_name         = "proxmox"
+ssh_public_key    = "ssh-ed25519 AAAA... lab"

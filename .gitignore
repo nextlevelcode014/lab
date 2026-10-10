@@ -11,6 +11,8 @@ terraform.tfvars.json
 
 # O .terraform.lock.hcl entra de propósito: fixa a versão dos providers.
 
-# Ansible
+# Ansible. O vault.yml é cifrado e mesmo assim fica fora do git, como no
+# repo ansible: o template versionado é o vault.yml.example.
 *.retry
 .vault-pass
+vault.yml

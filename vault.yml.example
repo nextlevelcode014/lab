@@ -1,0 +1,4 @@
+# Template do vault.yml (cifrado, fora do git). Senha própria do lab,
+# diferente da do vault da produção: vazar uma não abre a outra.
+#   ansible-vault create vault.yml
+vault_tailscale_authkey: "tskey-auth-..."
