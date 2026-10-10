@@ -31,7 +31,15 @@ chama a API.
 ## 2. Permissões, só o necessário
 
 ```bash
-# VMs: só dentro do pool lab
+# VMs: só os VMIDs do lab. Permissão de pool só vale para VM que já está no
+# pool, e na criação o Proxmox confere /vms/<id> antes de pôr a VM lá
+# (403 Permission check failed (/vms/900, VM.Config.Options)). ACL em VMID
+# que ainda não existe é aceita, e assim a faixa 900-999 é imposta pelo
+# próprio Proxmox, não só pela validação do módulo.
+for id in $(seq 900 999); do
+  pveum acl modify /vms/$id --users lab@pve --roles PVEVMAdmin
+done
+# Pool: pôr a VM criada no pool lab
 pveum acl modify /pool/lab --users lab@pve --roles PVEVMAdmin,PVEPoolAdmin
 # Discos: ler a imagem e o snippet do local, criar disco no local-lvm
 pveum acl modify /storage/local --users lab@pve --roles PVEDatastoreUser
@@ -43,6 +51,9 @@ pveum acl modify /sdn/zones/localnetwork/vmbr0 --users lab@pve --roles PVESDNUse
 Se um `apply` falhar com `Permission check failed (<caminho>, <privilégio>)`,
 acrescente só aquele privilégio naquele caminho. Nunca dê papel na raiz `/`:
 é isso que separaria o lab da produção.
+
+Confira: `pveum acl list | grep -c 'lab@pve'` mostra `104` (100 VMIDs +
+pool + 2 storages + bridge).
 
 Confira o isolamento (de qualquer máquina da tailnet), com o token novo:
 

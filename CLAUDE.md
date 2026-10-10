@@ -6,8 +6,9 @@ destruir e recriar à vontade, **desde que nada aqui alcance a produção**.
 
 ## Isolamento: a regra que não se quebra
 
-- **Proxmox:** só o token `lab@pve`, preso ao pool `lab`. VMID **900–999**
-  (o módulo `proxmox-vm` valida). Nunca usar o `terraform@pve` da produção,
+- **Proxmox:** só o token `lab@pve`, com permissão nos VMIDs **900–999**
+  (ACL em cada `/vms/<id>`, imposta pelo Proxmox; o módulo `proxmox-vm`
+  também valida) e no pool `lab`. Nunca usar o `terraform@pve` da produção,
   nunca dar papel ao `lab@pve` na raiz `/`. Detalhes em `docs/proxmox.md`.
 - **Tailscale:** máquina do lab entra com `tag:lab` e auth key efêmera. A ACL
   é do repo `ansible` (`tailscale/policy.hujson`); mudança nela é PR lá.
