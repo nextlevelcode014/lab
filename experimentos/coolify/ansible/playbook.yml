@@ -23,10 +23,16 @@
         timeout: 300
 
     # O cloud-init ainda pode estar instalando pacotes: sem esperar, o apt
-    # do role do Tailscale briga pela trava.
+    # do role do Tailscale briga pela trava. Sai com 2 ("degraded done") só
+    # por aviso: o user-data que o Proxmox gera usa `user:` como string, que
+    # o cloud-init marca como DEPRECATED. Falha só com erro de verdade.
     - name: Esperar o cloud-init terminar
-      ansible.builtin.command: cloud-init status --wait
+      ansible.builtin.command: cloud-init status --wait --format json
+      register: lab_cloud_init
       changed_when: false
+      failed_when: >-
+        lab_cloud_init.rc not in [0, 2]
+        or (lab_cloud_init.stdout | from_json).errors | length > 0
 
     - name: Coletar fatos
       ansible.builtin.setup:
