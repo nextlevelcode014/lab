@@ -1,0 +1,16 @@
+# Estado e segredos: nunca entram no git. O state guarda o token do Proxmox,
+# IPs e o que mais o provider devolver; cada experimento tem o seu.
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfstate.*.backup
+crash.log
+terraform.tfvars
+terraform.tfvars.json
+*.auto.tfvars
+
+# O .terraform.lock.hcl entra de propósito: fixa a versão dos providers.
+
+# Ansible
+*.retry
+.vault-pass
