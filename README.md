@@ -12,6 +12,7 @@ Separar o código é fácil; o que protege é separar o **acesso**:
 |---|---|
 | Proxmox | usuário `lab@pve` com permissão só no pool `lab` e VMID **900–999** ([docs/proxmox.md](docs/proxmox.md)) |
 | Tailscale | nós com `tag:lab`, auth key efêmera; a ACL não deixa `tag:lab` alcançar nada da infra ([docs/tailscale.md](docs/tailscale.md)) |
+| Hetzner | projeto `lab` com token próprio: não enxerga o projeto da produção ([docs/nuvem.md](docs/nuvem.md)) |
 | AWS / Google | alerta de custo criado **antes** do primeiro `apply`; todo recurso com `env=lab` ([docs/nuvem.md](docs/nuvem.md)) |
 
 ## Estrutura
@@ -32,3 +33,4 @@ Acoplar os repos traria de volta o risco que a separação existe para evitar.
 | Experimento | Onde | O que testa |
 |---|---|---|
 | [coolify](experimentos/coolify/README.md) | Proxmox (VM 900) | Coolify como PaaS self-hosted |
+| [coolify-hetzner](experimentos/coolify-hetzner/README.md) | Hetzner (cx23, projeto lab) | Coolify com IP público: deploy de site e TLS |

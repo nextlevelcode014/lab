@@ -21,8 +21,13 @@ destruir e recriar à vontade, **desde que nada aqui alcance a produção**.
 
 - Ansible: `vault.yml` na raiz (cifrado, fora do git, template em
   `vault.yml.example`), com senha **própria do lab**, nunca a da produção.
-  Cada playbook o carrega por `vars_files`; o `ansible.cfg` do experimento
-  liga `ask_vault_pass`. Variáveis com prefixo `vault_`.
+  Playbook que usa segredo o carrega por `vars_files`, e o `ansible.cfg` do
+  experimento liga `ask_vault_pass`; sem segredo, nenhum dos dois. Variáveis
+  com prefixo `vault_`.
+- Auth key do Tailscale que vai no `user_data` (VPS em nuvem): **de uso
+  único**, por `TF_VAR_tailscale_authkey`, nunca a reutilizável do vault. O
+  `user_data` fica legível no metadata service, ao alcance de qualquer
+  container da máquina.
 - Terraform: `terraform.tfvars` de cada experimento (fora do git).
 
 ## Estrutura

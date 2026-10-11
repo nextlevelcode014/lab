@@ -1,0 +1,15 @@
+#cloud-config
+# Primeiro boot: usuário lab (o Ansible entra com ele) e o Tailscale na
+# tailnet com tag:lab. Sem 22 pública, a tailnet é o único caminho de entrada.
+users:
+  - name: lab
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+ssh_pwauth: false
+
+runcmd:
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - tailscale up --auth-key=${tailscale_authkey} --hostname=${hostname} --ssh

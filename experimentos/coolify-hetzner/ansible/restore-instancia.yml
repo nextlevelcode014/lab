@@ -1,0 +1,171 @@
+---
+# Restaura a instância do Coolify (coolify-db + APP_KEY) a partir do borg,
+# numa VPS recém-criada pelo playbook.yml. Roteiro completo e passos à mão:
+# README, "Recriar do zero e restaurar".
+#
+#   ansible-playbook restore-instancia.yml
+#   ansible-playbook restore-instancia.yml -e borg_archive=lab-coolify-hetzner-2026-10-11T21:18
+#
+# Por padrão usa o último arquivo do borg e, dentro dele, o dump mais novo do
+# coolify-db. Recusa rodar numa instância que já tem usuário: o pg_restore
+# --clean apagaria um Coolify em uso.
+- name: Restaurar a instância do Coolify
+  hosts: coolify
+  become: true
+  gather_facts: false
+  vars:
+    # Tem que ser a versão que gerou o backup, a mesma do playbook.yml.
+    coolify_version: "4.4.6"
+    borg_archive: ""
+    restore_dir: /root/restore
+    forcar: false
+
+  tasks:
+    - name: Ler a versão do Coolify rodando
+      ansible.builtin.command: docker inspect coolify --format '{{ "{{" }}.Config.Image{{ "}}" }}'
+      register: lab_imagem
+      changed_when: false
+
+    - name: Conferir a versão
+      ansible.builtin.assert:
+        that: lab_imagem.stdout.endswith(':' ~ coolify_version)
+        fail_msg: >-
+          O Coolify rodando é {{ lab_imagem.stdout }}, e o backup pede {{ coolify_version }}.
+          Reinstale na mesma versão antes de restaurar.
+
+    - name: Contar usuários na instância atual
+      ansible.builtin.command: docker exec coolify-db psql -U coolify -d coolify -Atc "select count(*) from users"
+      register: lab_usuarios
+      changed_when: false
+
+    - name: Não sobrescrever um Coolify em uso
+      ansible.builtin.assert:
+        that: lab_usuarios.stdout | int == 0 or forcar | bool
+        fail_msg: >-
+          Esta instância já tem {{ lab_usuarios.stdout }} usuário(s): o restore apagaria tudo.
+          Se é isso mesmo, rode com -e forcar=true.
+
+    - name: Escolher o arquivo do borg
+      ansible.builtin.command: borg-coolify list --short --last 1
+      register: lab_ultimo
+      changed_when: false
+      when: borg_archive == ""
+
+    - name: Fixar o arquivo
+      ansible.builtin.set_fact:
+        lab_arquivo: "{{ borg_archive or lab_ultimo.stdout }}"
+
+    # O nome traz o epoch (pg-dump-coolify-<epoch>-<id>.dmp): ordenar pelo
+    # nome é ordenar pela data.
+    - name: Achar o dump mais novo do coolify-db no arquivo
+      ansible.builtin.shell: |
+        set -o pipefail
+        borg-coolify list ::{{ lab_arquivo | quote }} --format '{path}{NL}' \
+          | grep '/coolify-db-[^/]*/pg-dump-coolify-[0-9]*-.*\.dmp$' | sort | tail -1
+      args:
+        executable: /bin/bash
+      register: lab_dump
+      changed_when: false
+      failed_when: lab_dump.stdout == ""
+
+    - name: Diretório de trabalho
+      ansible.builtin.file:
+        path: "{{ restore_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Extrair do borg o dump e o .env antigo
+      ansible.builtin.command:
+        cmd: borg-coolify extract ::{{ lab_arquivo }} {{ lab_dump.stdout }} data/coolify/source/.env
+        chdir: "{{ restore_dir }}"
+      changed_when: true
+
+    - name: Ler o APP_KEY antigo
+      ansible.builtin.command: grep '^APP_KEY=' {{ restore_dir }}/data/coolify/source/.env
+      register: lab_app_key
+      changed_when: false
+      no_log: true
+
+    # Só o APP_KEY: DB_PASSWORD, REDIS_PASSWORD e o resto são da instalação
+    # nova, que é com quem os containers novos sobem. É com o APP_KEY que os
+    # segredos dentro do coolify-db estão cifrados; sem ele, o painel abre e
+    # toda tela com segredo dá 500 "The MAC is invalid".
+    - name: Pôr o APP_KEY antigo no .env novo
+      ansible.builtin.lineinfile:
+        path: /data/coolify/source/.env
+        regexp: '^APP_KEY='
+        line: "{{ lab_app_key.stdout }}"
+      no_log: true
+
+    - name: Parar o Coolify, mantendo o banco de pé
+      ansible.builtin.command: docker stop coolify coolify-redis
+      changed_when: true
+
+    # --exit-on-error: um erro no meio para tudo, em vez de parecer sucesso.
+    - name: Restaurar o coolify-db
+      ansible.builtin.shell: >-
+        docker exec -i coolify-db pg_restore --clean --if-exists --exit-on-error
+        --no-acl --no-owner --username=coolify --dbname=coolify
+        < {{ (restore_dir ~ '/' ~ lab_dump.stdout) | quote }}
+      changed_when: true
+
+    # Aplica as migrations e sobe tudo de novo com o APP_KEY antigo.
+    - name: Rodar o instalador de novo, na mesma versão
+      ansible.builtin.command: bash /root/coolify-install.sh {{ coolify_version }}
+      changed_when: true
+
+    - name: Esperar o Coolify ficar saudável
+      ansible.builtin.command: docker inspect coolify --format '{{ "{{" }}.State.Health.Status{{ "}}" }}'
+      register: lab_saude
+      until: lab_saude.stdout == "healthy"
+      retries: 40
+      delay: 5
+      changed_when: false
+
+    # O restore traz do banco a chave com que o Coolify entra no próprio host
+    # (servidor localhost, id 0). O authorized_keys do root não está em
+    # backup nenhum e só tem a chave da instalação nova, órfã agora. A
+    # pública sai da privada restaurada, que o Coolify grava em ssh/keys.
+    - name: Achar a chave do servidor localhost
+      ansible.builtin.command: >-
+        docker exec coolify-db psql -U coolify -d coolify -Atc
+        "select pk.uuid from servers s join private_keys pk on pk.id = s.private_key_id where s.id = 0"
+      register: lab_chave
+      changed_when: false
+
+    - name: Esperar o Coolify gravar a chave restaurada
+      ansible.builtin.wait_for:
+        path: /data/coolify/ssh/keys/ssh_key@{{ lab_chave.stdout }}
+        timeout: 120
+
+    - name: Trocar a chave órfã pela restaurada no authorized_keys do root
+      ansible.builtin.shell: |
+        set -euo pipefail
+        pub=$(ssh-keygen -y -f /data/coolify/ssh/keys/ssh_key@{{ lab_chave.stdout }} | cut -d' ' -f1,2)
+        if grep -qF "$pub" /root/.ssh/authorized_keys; then echo igual; exit 0; fi
+        { grep -v ' coolify$' /root/.ssh/authorized_keys || true; echo "$pub coolify"; } > /root/.ssh/authorized_keys.novo
+        install -m 600 /root/.ssh/authorized_keys.novo /root/.ssh/authorized_keys
+        rm /root/.ssh/authorized_keys.novo
+      args:
+        executable: /bin/bash
+      register: lab_authorized
+      changed_when: lab_authorized.stdout != "igual"
+
+    - name: Conferir o SSH do Coolify para o host
+      ansible.builtin.command: >-
+        docker exec coolify ssh -i /var/www/html/storage/app/ssh/keys/ssh_key@{{ lab_chave.stdout }}
+        -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 root@host.docker.internal true
+      changed_when: false
+
+    # Guarda uma cópia do .env antigo: não fica para trás.
+    - name: Apagar o diretório de trabalho
+      ansible.builtin.file:
+        path: "{{ restore_dir }}"
+        state: absent
+
+    - name: O que falta (à mão)
+      ansible.builtin.debug:
+        msg:
+          - "Restaurado: {{ lab_dump.stdout | basename }} (arquivo {{ lab_arquivo }})."
+          - "Painel: login com a conta de antes; Servers → localhost → Validate."
+          - "Depois: docker login do GHCR, bancos pelo Import Backup, volumes com restore-volume.yml (README)."

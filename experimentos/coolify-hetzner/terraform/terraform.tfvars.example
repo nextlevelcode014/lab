@@ -1,0 +1,6 @@
+# Projeto "lab" → Security → API tokens, leitura e escrita. Guardado no
+# Vaultwarden como "Hetzner API token — lab". Nunca o token da produção.
+hcloud_token   = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+ssh_public_key = "ssh-ed25519 AAAA... lab"
+
+# A auth key do Tailscale NÃO vai aqui: export TF_VAR_tailscale_authkey (README).

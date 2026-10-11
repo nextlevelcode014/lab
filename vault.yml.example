@@ -2,3 +2,8 @@
 # diferente da do vault da produção: vazar uma não abre a outra.
 #   ansible-vault create vault.yml
 vault_tailscale_authkey: "tskey-auth-..."
+
+# Backup do coolify-hetzner para a BorgBase (README do experimento). A
+# passphrase também vai no Vaultwarden: sem ela, o repo é ilegível.
+vault_borg_repo: "ssh://xxxxxxxx@xxxxxxxx.repo.borgbase.com/./repo"
+vault_borg_passphrase: "..."

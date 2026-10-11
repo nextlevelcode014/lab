@@ -1,0 +1,99 @@
+---
+# Restaura um volume Docker a partir do tar que o backup de volume do
+# Coolify gerou, tirado do borg. O Coolify não tem restore de volume pelo
+# painel. Rode depois do restore-instancia.yml e do primeiro Deploy do
+# recurso (é o Deploy que cria o volume, vazio).
+#
+#   ansible-playbook restore-volume.yml -e volume=9hf5hfr3fz9ma5r3pui1kutv_uptime-kuma-data
+#
+# O nome do volume está no painel (recurso → Persistent Storage) ou em
+# `docker volume ls`. Os containers que usam o volume são parados durante a
+# troca e sobem de novo no fim.
+- name: Restaurar um volume do Coolify
+  hosts: coolify
+  become: true
+  gather_facts: false
+  vars:
+    volume: ""
+    borg_archive: ""
+    restore_dir: /root/restore
+
+  tasks:
+    - name: Exigir o nome do volume
+      ansible.builtin.assert:
+        that: volume != ""
+        fail_msg: "Passe o volume: -e volume=<nome> (docker volume ls)."
+
+    - name: Achar o volume
+      ansible.builtin.command: docker volume inspect {{ volume | quote }} --format '{{ "{{" }}.Mountpoint{{ "}}" }}'
+      register: lab_mountpoint
+      changed_when: false
+
+    - name: Escolher o arquivo do borg
+      ansible.builtin.command: borg-coolify list --short --last 1
+      register: lab_ultimo
+      changed_when: false
+      when: borg_archive == ""
+
+    - name: Fixar o arquivo
+      ansible.builtin.set_fact:
+        lab_arquivo: "{{ borg_archive or lab_ultimo.stdout }}"
+
+    # O Coolify nomeia o tar como volume-<volume com _ virando ->-<epoch>.tar.gz.
+    - name: Achar o tar mais novo desse volume no arquivo
+      ansible.builtin.shell: |
+        set -o pipefail
+        borg-coolify list ::{{ lab_arquivo | quote }} --format '{path}{NL}' \
+          | grep '/volume-{{ volume | replace("_", "-") }}-[0-9]*\.tar\.gz$' | sort | tail -1
+      args:
+        executable: /bin/bash
+      register: lab_tar
+      changed_when: false
+      failed_when: lab_tar.stdout == ""
+
+    - name: Diretório de trabalho
+      ansible.builtin.file:
+        path: "{{ restore_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Extrair o tar do borg
+      ansible.builtin.command:
+        cmd: borg-coolify extract ::{{ lab_arquivo }} {{ lab_tar.stdout }}
+        chdir: "{{ restore_dir }}"
+      changed_when: true
+
+    - name: Achar os containers que usam o volume
+      ansible.builtin.command: docker ps -q --filter volume={{ volume | quote }}
+      register: lab_containers
+      changed_when: false
+
+    # Parado, ninguém escreve no volume durante a troca (SQLite, por exemplo).
+    - name: Parar os containers
+      ansible.builtin.command: docker stop {{ lab_containers.stdout_lines | join(' ') }}
+      when: lab_containers.stdout_lines | length > 0
+      changed_when: true
+
+    # Apaga o que o Deploy criou e extrai preservando dono e permissão.
+    - name: Trocar o conteúdo do volume pelo do tar
+      ansible.builtin.shell: |
+        set -euo pipefail
+        find {{ lab_mountpoint.stdout | quote }} -mindepth 1 -delete
+        tar -xzpf {{ (restore_dir ~ '/' ~ lab_tar.stdout) | quote }} -C {{ lab_mountpoint.stdout | quote }}
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Subir os containers
+      ansible.builtin.command: docker start {{ lab_containers.stdout_lines | join(' ') }}
+      when: lab_containers.stdout_lines | length > 0
+      changed_when: true
+
+    - name: Apagar o diretório de trabalho
+      ansible.builtin.file:
+        path: "{{ restore_dir }}"
+        state: absent
+
+    - name: Restaurado
+      ansible.builtin.debug:
+        msg: "{{ volume }} ← {{ lab_tar.stdout | basename }} (arquivo {{ lab_arquivo }}). Confira o app."

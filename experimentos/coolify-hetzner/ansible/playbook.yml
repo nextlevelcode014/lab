@@ -1,0 +1,156 @@
+---
+# Coolify numa VPS do lab na Hetzner. O Tailscale já veio do cloud-init
+# (tag:lab, auth key de uso único), e é por ele que o Ansible entra: a 22
+# pública não existe.
+- name: Coolify na Hetzner
+  hosts: coolify
+  become: true
+  gather_facts: false
+  vars:
+    # Fixa a versão: o restore de um backup da instância pede a mesma versão
+    # que o gerou. Sem argumento, o instalador pega a última estável.
+    coolify_version: "4.4.6"
+
+  pre_tasks:
+    # O nome só resolve depois que o cloud-init instala o Tailscale e entra
+    # na tailnet: no primeiro boot, alguns minutos.
+    - name: Esperar o SSH pela tailnet
+      ansible.builtin.wait_for_connection:
+        timeout: 600
+
+    # Sai com 2 ("degraded done") só por aviso DEPRECATED; falha só com erro
+    # de verdade. Sem esperar, o apt do instalador briga pela trava.
+    - name: Esperar o cloud-init terminar
+      ansible.builtin.command: cloud-init status --wait --format json
+      register: lab_cloud_init
+      changed_when: false
+      failed_when: >-
+        lab_cloud_init.rc not in [0, 2]
+        or (lab_cloud_init.stdout | from_json).errors | length > 0
+
+    - name: Coletar fatos
+      ansible.builtin.setup:
+
+  tasks:
+    # O instalador põe Docker, sobe o Coolify em /data/coolify e toma as
+    # portas 80, 443 e 8000. Leia antes: /root/coolify-install.sh.
+    - name: Baixar o instalador do Coolify
+      ansible.builtin.get_url:
+        url: https://cdn.coollabs.io/coolify/install.sh
+        dest: /root/coolify-install.sh
+        mode: "0700"
+
+    - name: Instalar o Coolify
+      ansible.builtin.command: bash /root/coolify-install.sh {{ coolify_version }}
+      args:
+        creates: /data/coolify/source/.env
+
+    - name: Onde abrir
+      ansible.builtin.debug:
+        msg: >-
+          Painel: http://{{ ansible_host }}:8000 (só pela tailnet).
+          Crie a conta de admin AGORA: o primeiro cadastro vira admin.
+
+# Backup do host para a BorgBase. O Coolify gera as cópias consistentes no
+# disco (dumps e tars em /data/coolify/backups); o borg leva o /data/coolify
+# inteiro para fora, cifrado e deduplicado, junto com o que o Coolify não
+# copia: o .env com o APP_KEY e as chaves SSH. Volume cru de banco fica de
+# fora de propósito: copiar o diretório de um Postgres rodando é backup
+# inconsistente.
+- name: Backup do host com borg
+  hosts: coolify
+  become: true
+  vars_files:
+    - ../../../vault.yml
+  vars:
+    borg_repo: "{{ vault_borg_repo }}"
+
+  tasks:
+    - name: Instalar o borg (1.x; o borgbackup2 ainda é beta)
+      ansible.builtin.apt:
+        name: borgbackup
+        update_cache: true
+        cache_valid_time: 3600
+
+    # Uma chave por VPS, que morre com ela. Na BorgBase ela entra como
+    # append-only: grava backup novo, mas não apaga os antigos, mesmo com a
+    # VPS comprometida.
+    - name: Gerar a chave SSH do borg
+      ansible.builtin.command: ssh-keygen -t ed25519 -N "" -C "borg@{{ inventory_hostname }}" -f /root/.ssh/borg_ed25519
+      args:
+        creates: /root/.ssh/borg_ed25519
+
+    - name: Diretório da config do borg
+      ansible.builtin.file:
+        path: /root/.config/borg
+        state: directory
+        mode: "0700"
+
+    - name: Passphrase do repo
+      ansible.builtin.copy:
+        content: "{{ vault_borg_passphrase }}"
+        dest: /root/.config/borg/passphrase
+        mode: "0600"
+      no_log: true
+
+    # Todo comando borg passa por aqui: `borg-coolify list`, `borg-coolify
+    # extract ...`. Assim repo, chave e passphrase não se repetem à mão.
+    - name: Wrapper borg-coolify
+      ansible.builtin.copy:
+        dest: /usr/local/sbin/borg-coolify
+        mode: "0700"
+        content: |
+          #!/bin/sh
+          export BORG_REPO={{ borg_repo | quote }}
+          export BORG_PASSCOMMAND="cat /root/.config/borg/passphrase"
+          export BORG_RSH="ssh -i /root/.ssh/borg_ed25519 -o StrictHostKeyChecking=accept-new"
+          exec borg "$@"
+
+    - name: Serviço do backup
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/borg-coolify.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Backup do /data/coolify para a BorgBase
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/borg-coolify create --stats --compression zstd ::{hostname}-{now:%%Y-%%m-%%dT%%H:%%M} /data/coolify
+
+    # 01:30: depois dos backups do Coolify (padrão 00:00), para levar os
+    # dumps do dia. Persistent: se a VPS estava desligada, roda ao ligar.
+    - name: Timer do backup
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/borg-coolify.timer
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Backup diário do /data/coolify
+
+          [Timer]
+          OnCalendar=*-*-* 01:30
+          RandomizedDelaySec=10m
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+
+    - name: Ligar o timer
+      ansible.builtin.systemd_service:
+        name: borg-coolify.timer
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Ler a chave pública do borg
+      ansible.builtin.command: cat /root/.ssh/borg_ed25519.pub
+      register: lab_borg_pubkey
+      changed_when: false
+
+    - name: O que fazer na BorgBase
+      ansible.builtin.debug:
+        msg: >-
+          Chave para a BorgBase (append-only no repo): {{ lab_borg_pubkey.stdout }}

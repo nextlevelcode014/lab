@@ -1,0 +1,70 @@
+# Push na main: imagem nova no GHCR, depois o Coolify (só na tailnet) faz o
+# deploy dela. O runner entra na tailnet como nó efêmero com tag:lab-ci, que a
+# ACL deixa chegar só na porta 8000 das máquinas do lab.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Dois pushes seguidos não fazem deploy fora de ordem.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  imagem:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # o GITHUB_TOKEN publica no GHCR do próprio repo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # O Coolify puxa o :<sha>; o :latest é só para uso à mão.
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+          build-args: VERSAO=${{ github.sha }}
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+  deploy:
+    needs: imagem
+    # Até o app existir no Coolify (e a variável ser criada), só publica.
+    if: vars.COOLIFY_APP_UUID != ''
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:lab-ci
+
+      # Deploy pelo sha, não pelo :latest: cada versão fica na VPS com tag
+      # própria, e a aba Rollback do Coolify tem para onde voltar. Trocar a
+      # tag exige token com permissão write (deploy sozinho não basta).
+      - name: Apontar o app para a imagem deste commit e pedir o deploy
+        env:
+          COOLIFY_HOST: ${{ vars.COOLIFY_HOST }}
+          COOLIFY_APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          TAG: ${{ github.sha }}
+        run: |
+          api="http://$(tailscale ip -4 "$COOLIFY_HOST"):8000/api/v1"
+          auth="Authorization: Bearer $COOLIFY_TOKEN"
+          curl --fail-with-body -sS -X PATCH -H "$auth" \
+            --json "{\"docker_registry_image_tag\": \"$TAG\"}" \
+            "$api/applications/$COOLIFY_APP_UUID"
+          echo
+          curl --fail-with-body -sS -X POST -H "$auth" \
+            "$api/deploy?uuid=$COOLIFY_APP_UUID&force=false"
