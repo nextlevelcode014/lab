@@ -190,16 +190,20 @@ mão):
 3. **Login do GHCR na VPS:** a imagem é privada, e quem faz o pull é o
    Docker da VPS. Crie um PAT **clássico** só com `read:packages`, validade
    curta (<https://github.com/settings/tokens/new>; o fine-grained não serve
-   para o GHCR). Depois:
+   para o GHCR). Ponha no vault do lab e rode o playbook, que faz o
+   `docker login` (play "Login do Docker no GHCR"):
 
    ```bash
-   read -rs GHCR_PAT && printf %s "$GHCR_PAT" | ssh lab@lab-coolify-hetzner.<tailnet>.ts.net \
-     sudo docker login ghcr.io -u nextlevelcode014 --password-stdin
-   unset GHCR_PAT
+   ansible-vault edit vault.yml   # na raiz do repo: vault_ghcr_pat: "ghp_..."
+   cd experimentos/coolify-hetzner/ansible
+   ansible-playbook playbook.yml
    ```
 
-   Confira: `Login Succeeded`. O token fica em `/root/.docker/config.json`
-   (base64, não cifrado): aceitável no lab, que morre no `destroy`.
+   Confira: `ssh lab@lab-coolify-hetzner.<tailnet>.ts.net sudo docker pull
+   ghcr.io/nextlevelcode014/coolify-teste-app:latest` baixa sem
+   `unauthorized`. O token fica em `/root/.docker/config.json` (base64, não
+   cifrado), fora de qualquer backup: é por isso que vem do vault, e cada
+   VPS nova loga de novo pelo playbook.
 4. **Banco:** no Coolify, **Projects → + Add → Resource → PostgreSQL** →
    **Start**. Copie a **Postgres URL (internal)**. Não ligue *Make it
    publicly available*: o banco fica só na rede Docker do Coolify.
@@ -419,7 +423,8 @@ No lab, com poucos MB, não precisa.
 ## Recriar do zero e restaurar
 
 Testado em 2026-10-11: `destroy` da VPS, VPS nova e tudo de volta, menos o
-site do GitHub App (que já tinha sido apagado). A ordem importa. Os passos
+site do GitHub App (que já tinha sido apagado). Refeito em 2026-10-12
+seguindo só este README, que foi corrigido onde faltava passo. A ordem importa. Os passos
 "à mão" pedem navegador ou um segredo que você digita.
 
 ### Antes do destroy
@@ -433,7 +438,21 @@ site do GitHub App (que já tinha sido apagado). A ordem importa. Os passos
    ssh lab@lab-coolify-hetzner.<tailnet>.ts.net sudo borg-coolify list --last 1
    ```
 
-   Anote o nome do arquivo: é ele que o restore vai usar.
+   Anote o nome do arquivo: é ele que os dois restores vão usar. Se
+   perder, é o último do `borg-coolify list` com horário anterior ao
+   `uptime -s` da VPS nova. Confira que ele
+   tem os dumps do passo 1, com o horário de agora:
+
+   ```bash
+   ssh lab@lab-coolify-hetzner.<tailnet>.ts.net sudo borg-coolify list ::<arquivo> \
+     --format '"{mtime} {path}{NL}"' data/coolify/backups | grep -E '\.(dmp|tar\.gz)$'
+   ```
+
+   Precisa aparecer um `coolify-db-hostdockerinternal/pg-dump-coolify-*`
+   e um arquivo de cada banco e volume. Numa VPS que acabou de ser
+   restaurada, o `backups/` começa vazio (o restore não traz os dumps
+   antigos para o disco): sem o passo 1, o arquivo sai sem nada para
+   restaurar, e o borg não reclama.
 3. Confira que o `APP_KEY` e a versão do Coolify estão no Vaultwarden. O
    borg também tem o `APP_KEY` (o `.env` inteiro), mas sem a passphrase do
    borg não há como chegar nele.
@@ -445,8 +464,8 @@ site do GitHub App (que já tinha sido apagado). A ordem importa. Os passos
 2. **À mão:** apagar o nó em *Machines* do Tailscale e gerar outra auth key
    (seção "Subir", passo 1). `terraform apply`.
 3. `ansible-playbook playbook.yml`: instala o Coolify na versão fixada
-   (`coolify_version`) e o borg. **Não crie a conta de admin**: o restore
-   traz a antiga.
+   (`coolify_version`), o login do GHCR e o borg. **Não crie a conta de
+   admin**: o restore traz a antiga.
 4. **À mão:** chave nova do borg na BorgBase, *append-only*; apague a velha.
 
 ### Restaurar a instância
@@ -485,21 +504,39 @@ verde, e as telas de um app e do S3 abrem.
 
 ### Restaurar os apps
 
-1. **À mão:** `docker login` do GHCR (seção CI/CD, passo 3). É a única
+1. O login do GHCR já veio do `playbook.yml` (`vault_ghcr_pat`). É a única
    credencial dos apps que mora no host e não no `coolify-db`; sem ela o
    deploy dá `unauthorized` no pull.
 2. Cada banco: **Start** (sobe vazio) → **Import Backup** → **S3** → o dump
-   mais novo.
+   mais novo. Para achá-lo (o número no nome é o horário em epoch; confira
+   com `date -u -d @<número>` que é de depois do passo 1 do "Antes do
+   destroy"):
+
+   ```bash
+   aws --profile lab s3 ls --recursive s3://$(terraform -chdir=../terraform-backup output -raw bucket)/data/coolify/backups/databases/ \
+     | sort | tail -3
+   ```
+
+   No painel, cole o caminho com `/` na frente. Se já importou um dump
+   errado, importe o certo com **Replace objects that already exist**: as
+   tabelas já existem, e sem ele o restore falha inteiro.
 3. Cada app: **Deploy**.
 4. Cada serviço com volume: **Deploy** (cria o volume vazio; não preencha
    assistente nenhum) e:
 
    ```bash
-   ansible-playbook restore-volume.yml -e volume=<nome do volume>
+   ssh lab@lab-coolify-hetzner.<tailnet>.ts.net sudo docker volume ls   # <uuid do serviço>_<nome>
+   ANSIBLE_ASK_VAULT_PASS=false ansible-playbook restore-volume.yml \
+     -e volume=<nome do volume> -e borg_archive=<arquivo anotado>
    ```
 
    Ele tira do borg o tar mais novo daquele volume, para os containers que
-   o usam, troca o conteúdo e sobe de novo.
+   o usam, troca o conteúdo e sobe de novo. O nome do volume volta igual
+   ao de antes (o UUID do serviço vem do `coolify-db`); no Uptime Kuma do
+   teste, `9hf5hfr3fz9ma5r3pui1kutv_uptime-kuma-data`. Passe o mesmo
+   arquivo do restore da instância: sem `-e borg_archive`, vale o último
+   do borg, e depois do primeiro timer (01:30) esse é da VPS nova, sem o
+   tar.
 
 O que **não** volta com backup nenhum:
 

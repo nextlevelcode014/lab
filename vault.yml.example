@@ -7,3 +7,7 @@ vault_tailscale_authkey: "tskey-auth-..."
 # passphrase também vai no Vaultwarden: sem ela, o repo é ilegível.
 vault_borg_repo: "ssh://xxxxxxxx@xxxxxxxx.repo.borgbase.com/./repo"
 vault_borg_passphrase: "..."
+
+# PAT clássico do GitHub, só `read:packages`: o pull da imagem privada do
+# coolify-teste-app no GHCR (README do experimento, seção CI/CD).
+vault_ghcr_pat: "ghp_..."

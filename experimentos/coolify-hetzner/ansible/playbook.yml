@@ -51,6 +51,27 @@
           Painel: http://{{ ansible_host }}:8000 (só pela tailnet).
           Crie a conta de admin AGORA: o primeiro cadastro vira admin.
 
+# A imagem do coolify-teste-app é privada no GHCR, e quem faz o pull é o
+# Docker do host, como root. O login fica em /root/.docker/config.json, fora
+# do coolify-db e do borg: sem esta play, toda VPS nova dá `unauthorized` no
+# deploy.
+- name: Login do Docker no GHCR
+  hosts: coolify
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../../../vault.yml
+  vars:
+    ghcr_user: nextlevelcode014
+
+  tasks:
+    # Pela stdin, não pela linha de comando: assim o PAT não aparece no `ps`.
+    - name: docker login ghcr.io
+      ansible.builtin.command:
+        cmd: docker login ghcr.io -u {{ ghcr_user }} --password-stdin
+        stdin: "{{ vault_ghcr_pat }}"
+      no_log: true
+
 # Backup do host para a BorgBase. O Coolify gera as cópias consistentes no
 # disco (dumps e tars em /data/coolify/backups); o borg leva o /data/coolify
 # inteiro para fora, cifrado e deduplicado, junto com o que o Coolify não
