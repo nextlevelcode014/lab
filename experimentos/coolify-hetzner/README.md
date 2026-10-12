@@ -5,6 +5,9 @@ descartável da Hetzner (cx23, fsn1, Ubuntu 26.04), com IP público de verdade:
 dá para testar deploy de um site com TLS como seria em produção, e a config
 fica pronta para virar uma VPS paga só para o Coolify.
 
+**Encerrado em 2026-10-12** (seção "Destruir"): nada deste experimento
+está no ar. Para refazer, comece em "Antes, uma vez".
+
 Como a VPS fica exposta:
 
 | Porta | Pública | Pela tailnet |
@@ -563,32 +566,85 @@ E o site abre no domínio `*.sslip.io` de fora da tailnet (celular no 4G).
 
 ## Destruir
 
+Na ordem: a VPS, os backups e então as credenciais que vivem fora do
+Terraform. Os passos à mão pedem login no navegador (GitHub, Tailscale,
+BorgBase), e o lab não guarda token de API de nenhum deles: é de
+propósito, e por isso não dá para scriptar.
+
+### 1. A VPS
+
 ```bash
 cd experimentos/coolify-hetzner/terraform
 terraform destroy
 ssh-keygen -R lab-coolify-hetzner.<tailnet>.ts.net
 ```
 
-O `destroy` apaga servidor, IP, firewall e chave SSH do projeto lab. Os
-backups têm `destroy` próprio, de propósito (apaga bucket, conteúdo e o
-usuário do Coolify):
+Apaga servidor, IP, firewall e chave SSH do projeto lab. Junto morre o
+token da API do Coolify que o CI usa: ele mora no `coolify-db`.
+
+Confira: `terraform state list` vazio, e o projeto **lab** vazio em
+<https://console.hetzner.cloud>. O nó efêmero some sozinho da tailnet em
+alguns minutos (`tailscale status | grep lab-coolify` sem saída). Se for
+recriar logo em seguida, apague-o antes em *Machines*: com o nome ainda
+ocupado, o novo entra como `lab-coolify-hetzner-1` e o Ansible bate no
+velho.
+
+### 2. Os backups no S3 (sem volta)
 
 ```bash
-cd ../terraform-backup && terraform destroy
+cd ../terraform-backup
+terraform destroy
 ```
 
-Fora deles, à mão:
+Apaga o bucket com tudo dentro, versões antigas incluídas
+(`force_destroy`), e o usuário `lab-coolify-backup`. Fica em `destroy`
+separado de propósito: é o único passo que perde dado.
 
-- **GitHub App:** GitHub → *Settings → Developer settings → GitHub Apps* →
-  `lab-coolify-hetzner` → *Delete*. Ela continua com acesso ao repo depois
-  que a VPS morre.
-- **CI/CD (se testou):** apagar o repo do app e o pacote no GHCR, revogar o
-  PAT `read:packages` e o OAuth client do Tailscale.
-- **Tailnet:** o nó efêmero some sozinho em alguns minutos. Se for recriar
-  logo em seguida, apague-o em *Machines* antes: com o nome ainda ocupado, o
-  novo entra como `lab-coolify-hetzner-1` e o Ansible bate no velho.
+Confira: `terraform state list` vazio (o Terraform só tira do state o que
+a AWS confirmou ter apagado) e `aws --profile lab s3 ls | grep lab-coolify`
+sem saída. O usuário IAM não dá para conferir com o profile `lab`: a
+boundary não deixa o `lab-terraform` ler usuários (`GetUser` e `ListUsers`
+dão *AccessDenied*), e isso é ela funcionando.
 
-Confira: o projeto **lab** na console da Hetzner está vazio.
+### 3. Credenciais, à mão
+
+1. **GitHub App** (se ainda existir): GitHub → *Settings → Developer
+   settings → GitHub Apps* → `lab-coolify-hetzner` → *Delete*. Ele continua
+   com acesso ao repo depois que a VPS morre.
+2. **Pacote no GHCR:** <https://github.com/nextlevelcode014?tab=packages> →
+   `coolify-teste-app` → *Package settings* → *Delete this package*. O
+   pacote não some junto com o repo.
+3. **Repo do app** (`nextlevelcode014/coolify-teste-app`): apague em
+   *Settings → Delete this repository*, ou, se ficar para testes futuros,
+   apague em *Settings → Secrets and variables → Actions* os secrets do
+   deploy (o token do Coolify e o OAuth client do Tailscale), que não
+   servem mais para nada.
+4. **PAT `read:packages`:** <https://github.com/settings/tokens> → *Delete*.
+   Depois tire o `vault_ghcr_pat` do vault: `ansible-vault edit vault.yml`
+   na raiz do repo.
+5. **OAuth client do Tailscale:** <https://login.tailscale.com/admin/settings/oauth>
+   → o da `tag:lab-ci` → *Revoke*. A tag fica na ACL: sem client, ela não
+   dá acesso a nada, e um próximo experimento de CI a reaproveita.
+6. **BorgBase:** <https://www.borgbase.com> → *Account → SSH keys* → apague
+   as `borg@lab-coolify-hetzner` (uma por VPS que existiu). O repo:
+   - **se ficar** (testes futuros): mantenha `vault_borg_*` no vault e a
+     passphrase e a chave exportada no Vaultwarden. Sem elas, os arquivos
+     viram lixo cifrado. A próxima VPS só precisa de chave nova, sem
+     `init`;
+   - **se for apagado:** *Repositories* → `lab-coolify-hetzner` → *Delete*,
+     e então tire `vault_borg_*` do vault e a passphrase do Vaultwarden.
+7. **Vaultwarden:** "Coolify lab-coolify-hetzner — APP_KEY" pode ir. Sem o
+   bucket, não sobra backup da instância que precise dela (o `.env` dentro
+   do borg tem a mesma chave).
+
+Confira: nenhum token na lista do GitHub nem client na do Tailscale, e o
+`coolify-teste-app` fora de <https://github.com/nextlevelcode014?tab=packages>.
+Um `docker pull` não serve de prova: sem login, pacote privado e pacote
+apagado dão o mesmo *denied*.
+
+Ficam de propósito, porque são da conta e não do experimento: o projeto
+**lab** e o token dele na Hetzner, o usuário `lab-terraform`, a policy
+`lab-boundary` e o profile `lab` da AWS.
 
 ## Se virar uma VPS paga só para o Coolify
 
