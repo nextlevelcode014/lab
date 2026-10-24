@@ -10,3 +10,4 @@ o que conferir e como destruir. Termine sempre com `terraform destroy`.
 | Tópico | O que pratica |
 |---|---|
 | [01-introducao](01-introducao/README.md) | O ciclo da IaC: init, plan, apply, drift, destroy |
+| [02-hcl](02-hcl/README.md) | Blocos, argumentos, referências, interpolação, funções, console |
