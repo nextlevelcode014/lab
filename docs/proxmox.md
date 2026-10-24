@@ -52,6 +52,10 @@ Se um `apply` falhar com `Permission check failed (<caminho>, <privilégio>)`,
 acrescente só aquele privilégio naquele caminho. Nunca dê papel na raiz `/`:
 é isso que separaria o lab da produção.
 
+`403 (/vms/<id>, VM.Config.Options)` num VMID que já funcionou: um destroy
+com purge apagou a ACL dele. Toda VM do lab leva `purge_on_destroy = false`;
+para repor, `pveum acl modify /vms/<id> --users lab@pve --roles PVEVMAdmin`.
+
 Confira: `pveum acl list | grep -c 'lab@pve'` mostra `104` (100 VMIDs +
 pool + 2 storages + bridge).
 
