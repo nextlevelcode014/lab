@@ -11,9 +11,6 @@ resource "proxmox_virtual_environment_vm" "base" {
   started         = false
   on_boot         = false
   stop_on_destroy = true
-  # Sem isto, o destroy (com purge) apaga a ACL de /vms/<id> do lab@pve e o
-  # próximo create no mesmo VMID falha com 403 (docs/proxmox.md).
-  purge_on_destroy = false
 
   cpu {
     cores = 1
@@ -46,9 +43,6 @@ resource "proxmox_virtual_environment_vm" "vizinha" {
   started         = false
   on_boot         = false
   stop_on_destroy = true
-  # Sem isto, o destroy (com purge) apaga a ACL de /vms/<id> do lab@pve e o
-  # próximo create no mesmo VMID falha com 403 (docs/proxmox.md).
-  purge_on_destroy = false
 
   cpu {
     cores = proxmox_virtual_environment_vm.base.cpu[0].cores

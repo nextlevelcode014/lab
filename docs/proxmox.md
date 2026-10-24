@@ -52,9 +52,21 @@ Se um `apply` falhar com `Permission check failed (<caminho>, <privilégio>)`,
 acrescente só aquele privilégio naquele caminho. Nunca dê papel na raiz `/`:
 é isso que separaria o lab da produção.
 
-`403 (/vms/<id>, VM.Config.Options)` num VMID que já funcionou: um destroy
-com purge apagou a ACL dele. Toda VM do lab leva `purge_on_destroy = false`;
-para repor, `pveum acl modify /vms/<id> --users lab@pve --roles PVEVMAdmin`.
+O Proxmox apaga as ACLs de `/vms/<id>` **sempre** que a VM é destruída, com
+ou sem purge. Quem as repõe é o `lab-acl.timer`, instalado no host pelo repo
+`infra` (role `proxmox_host`, seção "ACL do lab" do `ansible/docs/proxmox.md`,
+ADR 0017), a cada minuto. Por isso um `403 (/vms/<id>, VM.Config.Options)`
+num VMID que já funcionou quer dizer uma de duas coisas:
+
+- **o create veio menos de um minuto depois do destroy** daquele VMID (um
+  `-/+` que não troca o VMID): espere o timer e rode o `apply` de novo;
+- **o timer não está rodando**: confira e, para destravar na hora, reponha à
+  mão:
+
+  ```bash
+  ssh root@proxmox.<tailnet>.ts.net 'systemctl list-timers lab-acl.timer'
+  ssh root@proxmox.<tailnet>.ts.net 'pveum acl modify /vms/<id> --users lab@pve --roles PVEVMAdmin'
+  ```
 
 Confira: `pveum acl list | grep -c 'lab@pve'` mostra `104` (100 VMIDs +
 pool + 2 storages + bridge).
