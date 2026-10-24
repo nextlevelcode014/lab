@@ -34,3 +34,4 @@ Acoplar os repos traria de volta o risco que a separação existe para evitar.
 |---|---|---|
 | [coolify](experimentos/coolify/README.md) | Proxmox (VM 900) | Coolify como PaaS self-hosted |
 | [coolify-hetzner](experimentos/coolify-hetzner/README.md) | Hetzner (cx23, projeto lab) | Coolify com IP público: deploy de site e TLS |
+| [roadmap-terraform](experimentos/roadmap-terraform/README.md) | Proxmox (VMs 990–999) | Exercícios do roadmap.sh de Terraform, um por tópico |
