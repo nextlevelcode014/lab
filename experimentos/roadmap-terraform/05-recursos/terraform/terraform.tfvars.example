@@ -1,0 +1,3 @@
+# A string inteira, como está no Vaultwarden (já começa com lab@pve!terraform=).
+proxmox_api_token = "lab@pve!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+node_name         = "proxmox"
