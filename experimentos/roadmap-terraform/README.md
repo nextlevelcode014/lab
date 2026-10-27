@@ -14,3 +14,4 @@ o que conferir e como destruir. Termine sempre com `terraform destroy`.
 | [03-inicializacao](03-inicializacao/README.md) | Projeto do zero: `init`, `.terraform/`, lock file, constraints, plataformas |
 | [04-providers](04-providers/README.md) | Registry, endereço e nome local, configuração por ambiente, dois providers (Proxmox e AWS), alias, excluir versão |
 | [05-recursos](05-recursos/README.md) | `count`, `for_each`, `depends_on`, `lifecycle` (`ignore_changes`, `replace_triggered_by`, `create_before_destroy`, `prevent_destroy`), `region` por recurso |
+| [06-variaveis](06-variaveis/README.md) | Variável de entrada, tipos (`map(object)`, `optional`), `.tfvars`, `locals`, `TF_VAR_`, precedência, `validation` |
