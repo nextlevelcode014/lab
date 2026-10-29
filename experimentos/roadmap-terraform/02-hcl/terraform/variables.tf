@@ -1,6 +1,5 @@
 variable "proxmox_endpoint" {
-  type    = string
-  default = "https://proxmox.<tailnet>.ts.net:8006"
+  type = string
 }
 
 variable "proxmox_api_token" {

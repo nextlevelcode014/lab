@@ -1,3 +1,6 @@
 # A string inteira, como está no Vaultwarden (já começa com lab@pve!terraform=).
 proxmox_api_token = "lab@pve!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 node_name         = "proxmox"
+
+# O repo é público: o nome da tailnet fica só aqui, fora do git.
+proxmox_endpoint = "https://proxmox.<tailnet>.ts.net:8006"

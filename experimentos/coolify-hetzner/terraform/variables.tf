@@ -48,6 +48,5 @@ variable "image" {
 }
 
 variable "tailnet" {
-  type    = string
-  default = "<tailnet>.ts.net"
+  type = string
 }

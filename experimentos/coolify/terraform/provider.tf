@@ -1,6 +1,5 @@
 variable "proxmox_endpoint" {
-  type    = string
-  default = "https://proxmox.<tailnet>.ts.net:8006"
+  type = string
 }
 
 # Token do lab@pve (docs/proxmox.md), nunca o terraform@pve da produção.

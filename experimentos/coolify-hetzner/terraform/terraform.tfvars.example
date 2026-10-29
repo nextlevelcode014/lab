@@ -4,3 +4,6 @@ hcloud_token   = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ssh_public_key = "ssh-ed25519 AAAA... lab"
 
 # A auth key do Tailscale NÃO vai aqui: export TF_VAR_tailscale_authkey (README).
+
+# O repo é público: o nome da tailnet fica só aqui, fora do git.
+tailnet = "<tailnet>.ts.net"
