@@ -16,3 +16,4 @@ o que conferir e como destruir. Termine sempre com `terraform destroy`.
 | [05-recursos](05-recursos/README.md) | `count`, `for_each`, `depends_on`, `lifecycle` (`ignore_changes`, `replace_triggered_by`, `create_before_destroy`, `prevent_destroy`), `region` por recurso |
 | [06-variaveis](06-variaveis/README.md) | Variável de entrada, tipos (`map(object)`, `optional`), `.tfvars`, `locals`, `TF_VAR_`, precedência, `validation` |
 | [07-outputs](07-outputs/README.md) | `output`, `terraform output` (`-json`, `-raw`), `for` num mapa de `for_each`, `sensitive`, `nonsensitive`, `precondition`, `depends_on` |
+| [08-estado](08-estado/README.md) | Segredo no state, backend S3 (`-migrate-state`, `-backend-config`), versões do state, `use_lockfile`, `-lock-timeout`, bloco `import` com `-generate-config-out`, `terraform_remote_state` |
