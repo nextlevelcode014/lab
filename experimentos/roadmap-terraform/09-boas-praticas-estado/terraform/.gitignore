@@ -1,0 +1,3 @@
+# Gerado pelo bootstrap a cada experimento (o nome do bucket tem sufixo
+# aleatório). Num projeto de verdade ele entra no git: não tem segredo.
+lab.s3.tfbackend
