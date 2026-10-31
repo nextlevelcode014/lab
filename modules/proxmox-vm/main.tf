@@ -1,6 +1,17 @@
 # VM descartável do lab: imagem cloud do Ubuntu importada direto no disco,
-# rede por DHCP (o IP vem do qemu-guest-agent) e cloud-init com o usuário e
-# a chave SSH. Uma VM por chamada.
+# na vmbr2 (a bridge isolada do lab, ADR 0021 do repo infra) com IP fixo
+# tirado do VMID, e cloud-init com o usuário e a chave SSH. Uma VM por
+# chamada.
+locals {
+  # Mesma faixa do defaults do role proxmox_host, no repo infra: mudar aqui
+  # é mudar lá. VMID 900-999 vira 10.60.0.100-199.
+  ipv4    = "10.60.0.${var.vm_id - 800}"
+  gateway = "10.60.0.1"
+  # Na vmbr2 não há DNS de roteador. Quad9, como os LXCs da produção; a VM
+  # que entra na tailnet passa a usar o MagicDNS.
+  dns_servers = ["9.9.9.9", "149.112.112.112"]
+}
+
 resource "proxmox_virtual_environment_vm" "this" {
   name      = var.name
   vm_id     = var.vm_id
@@ -11,6 +22,8 @@ resource "proxmox_virtual_environment_vm" "this" {
   on_boot         = false
   stop_on_destroy = true
 
+  # O IP é fixo; esperar o agente no apply é o sinal de que o cloud-init
+  # instalou os pacotes (pelo NAT da vmbr2) e a VM está de pé.
   agent {
     enabled = true
     # O agente só sobe depois do cloud-init instalar o pacote.
@@ -52,8 +65,13 @@ resource "proxmox_virtual_environment_vm" "this" {
 
     ip_config {
       ipv4 {
-        address = "dhcp"
+        address = "${local.ipv4}/24"
+        gateway = local.gateway
       }
+    }
+
+    dns {
+      servers = local.dns_servers
     }
 
     user_account {

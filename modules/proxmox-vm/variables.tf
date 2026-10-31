@@ -48,9 +48,11 @@ variable "datastore_id" {
   default = "local-lvm"
 }
 
+# A vmbr2 é a única bridge em que o lab@pve tem permissão (docs/proxmox.md):
+# outra falha no apply. A vmbr0 poria a VM na LAN de onde o notebook estiver.
 variable "bridge" {
   type    = string
-  default = "vmbr0"
+  default = "vmbr2"
 }
 
 # Baixada uma vez, à mão, como root (docs/proxmox.md): o download pela API
@@ -60,8 +62,8 @@ variable "image_id" {
   default = "local:import/ubuntu-26.04-server-cloudimg-amd64.qcow2"
 }
 
-# Instala o qemu-guest-agent no primeiro boot: é por ele que o Proxmox (e o
-# Terraform) descobre o IP que o DHCP deu. Também criado à mão uma vez.
+# Instala o qemu-guest-agent no primeiro boot: é por ele que o Proxmox sabe
+# que a VM subiu e a desliga direito. Também criado à mão uma vez.
 variable "vendor_data_file_id" {
   type    = string
   default = "local:snippets/lab-vendor.yaml"

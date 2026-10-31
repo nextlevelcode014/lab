@@ -1,0 +1,14 @@
+# {{ ansible_managed }}
+services:
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:{{ abs_versao }}
+    restart: unless-stopped
+    ports:
+      - "13378:80"
+    volumes:
+      # config: o banco (SQLite) e as contas. metadata: capas, cache e os
+      # backups que o próprio app gera. Os dois juntos são o que salvar.
+      - {{ abs_dir }}/config:/config
+      - {{ abs_dir }}/metadata:/metadata
+      - {{ abs_dir }}/audiobooks:/audiobooks
+      - {{ abs_dir }}/podcasts:/podcasts

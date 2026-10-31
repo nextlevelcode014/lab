@@ -10,7 +10,7 @@ Separar o código é fácil; o que protege é separar o **acesso**:
 
 | Onde | Isolamento |
 |---|---|
-| Proxmox | usuário `lab@pve` com permissão só no pool `lab` e VMID **900–999** ([docs/proxmox.md](docs/proxmox.md)) |
+| Proxmox | usuário `lab@pve` com permissão só no pool `lab`, VMID **900–999** e a bridge `vmbr2`, que só sai para a internet ([docs/proxmox.md](docs/proxmox.md)) |
 | Tailscale | nós com `tag:lab`, auth key efêmera; a ACL não deixa `tag:lab` alcançar nada da infra ([docs/tailscale.md](docs/tailscale.md)) |
 | Hetzner | projeto `lab` com token próprio: não enxerga o projeto da produção ([docs/nuvem.md](docs/nuvem.md)) |
 | AWS / Google | alerta de custo criado **antes** do primeiro `apply`; todo recurso com `env=lab` ([docs/nuvem.md](docs/nuvem.md)) |
@@ -34,4 +34,5 @@ Acoplar os repos traria de volta o risco que a separação existe para evitar.
 |---|---|---|
 | [coolify](experimentos/coolify/README.md) | Proxmox (VM 900) | Coolify como PaaS self-hosted |
 | [coolify-hetzner](experimentos/coolify-hetzner/README.md) | Hetzner (cx23, projeto lab) | Coolify com IP público: deploy de site e TLS |
+| [audiobookshelf](experimentos/audiobookshelf/README.md) | Proxmox (VM 901) | Audiobookshelf: biblioteca, app no celular e backup que volta |
 | [roadmap-terraform](experimentos/roadmap-terraform/README.md) | Proxmox (VMs 990–999) | Exercícios do roadmap.sh de Terraform, um por tópico |

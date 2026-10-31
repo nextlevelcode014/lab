@@ -1,7 +1,7 @@
 ---
 # Coolify numa VM do lab: Tailscale com tag:lab (auth key efêmera, do
-# vault do lab) e o instalador oficial do Coolify. O primeiro acesso é pela
-# LAN (IP do DHCP); depois, pela tailnet também.
+# vault do lab) e o instalador oficial do Coolify. O Ansible chega à VM
+# saltando pelo Proxmox (ansible.cfg); o painel, pela tailnet.
 - name: Coolify no lab
   hosts: coolify
   become: true
@@ -60,6 +60,5 @@
     - name: Onde abrir
       ansible.builtin.debug:
         msg: >-
-          Painel: http://{{ ansible_host }}:8000 (LAN) ou
-          http://{{ inventory_hostname }}:8000 (tailnet).
+          Painel: http://{{ inventory_hostname }}:8000 (tailnet).
           Crie a conta de admin AGORA: o primeiro cadastro vira admin.

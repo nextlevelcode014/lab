@@ -1,0 +1,97 @@
+---
+# Audiobookshelf numa VM do lab: Tailscale com tag:lab (auth key efêmera, do
+# vault do lab), Docker dos pacotes do Ubuntu e o app num compose. O
+# Ansible chega à VM saltando pelo Proxmox (ansible.cfg); o painel e o app
+# do celular, pela tailnet.
+- name: Audiobookshelf no lab
+  hosts: audiobookshelf
+  become: true
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../vault.yml"
+  vars:
+    abs_versao: "2.37.2"
+    abs_dir: /srv/audiobookshelf
+
+  pre_tasks:
+    - name: Exigir a auth key do Tailscale no vault
+      ansible.builtin.assert:
+        that: vault_tailscale_authkey is defined and vault_tailscale_authkey | length > 0
+        fail_msg: >-
+          Falta vault_tailscale_authkey no vault.yml da raiz do lab
+          (docs/tailscale.md).
+      run_once: true
+
+    - name: Esperar o SSH
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+
+    # Mesmo motivo do experimento coolify: sem esperar, o apt briga pela
+    # trava com o cloud-init. O rc 2 é só o aviso de `user:` DEPRECATED.
+    - name: Esperar o cloud-init terminar
+      ansible.builtin.command: cloud-init status --wait --format json
+      register: lab_cloud_init
+      changed_when: false
+      failed_when: >-
+        lab_cloud_init.rc not in [0, 2]
+        or (lab_cloud_init.stdout | from_json).errors | length > 0
+
+    - name: Coletar fatos
+      ansible.builtin.setup:
+
+  roles:
+    - role: artis3n.tailscale.machine
+      vars:
+        tailscale_authkey: "{{ vault_tailscale_authkey }}"
+        tailscale_args: "--ssh --hostname={{ inventory_hostname }}"
+
+  tasks:
+    # Docker do próprio Ubuntu, não do repo da Docker: num lab descartável,
+    # um pacote a menos para configurar vale mais que a versão mais nova.
+    - name: Instalar o Docker e o compose
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+        update_cache: true
+
+    - name: Criar os diretórios do app
+      ansible.builtin.file:
+        path: "{{ abs_dir }}/{{ item }}"
+        state: directory
+        mode: "0755"
+      loop: ["", config, metadata, audiobooks, podcasts]
+
+    # O usuário lab escreve aqui sem sudo: é por onde o scp do README põe os
+    # livros de teste.
+    - name: Liberar a biblioteca para o usuário lab
+      ansible.builtin.file:
+        path: "{{ abs_dir }}/{{ item }}"
+        owner: lab
+        group: lab
+      loop: [audiobooks, podcasts]
+
+    - name: Gravar o compose
+      ansible.builtin.template:
+        src: compose.yml.j2
+        dest: "{{ abs_dir }}/compose.yml"
+        mode: "0644"
+
+    - name: Subir o Audiobookshelf
+      community.docker.docker_compose_v2:
+        project_src: "{{ abs_dir }}"
+        pull: missing
+
+    - name: Esperar o app responder
+      ansible.builtin.uri:
+        url: http://127.0.0.1:13378/healthcheck
+      register: abs_health
+      until: abs_health.status == 200
+      retries: 30
+      delay: 2
+
+    - name: Onde abrir
+      ansible.builtin.debug:
+        msg: >-
+          Painel: http://{{ inventory_hostname }}:13378 (tailnet).
+          Crie o usuário root AGORA: o primeiro acesso define a senha dele.

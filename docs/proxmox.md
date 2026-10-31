@@ -44,9 +44,25 @@ pveum acl modify /pool/lab --users lab@pve --roles PVEVMAdmin,PVEPoolAdmin
 # Discos: ler a imagem e o snippet do local, criar disco no local-lvm
 pveum acl modify /storage/local --users lab@pve --roles PVEDatastoreUser
 pveum acl modify /storage/local-lvm --users lab@pve --roles PVEDatastoreUser
-# Rede: usar a bridge da LAN
-pveum acl modify /sdn/zones/localnetwork/vmbr0 --users lab@pve --roles PVESDNUser
+# Rede: só a vmbr2, a bridge isolada do lab (ADR 0021 do repo infra). Sem
+# permissão na vmbr0, uma VM do lab na LAN falha no apply.
+pveum acl modify /sdn/zones/localnetwork/vmbr2 --users lab@pve --roles PVESDNUser
 ```
+
+A `vmbr2` e o firewall dela são do repo `infra` (`ansible/docs/proxmox.md`,
+"Rede do lab"): aplique aquele playbook antes do primeiro `apply` aqui. Sem
+ele, a VM é criada numa bridge que não existe e não sobe.
+
+**Proxmox que já tinha a permissão na `vmbr0`** (antes do ADR 0021): troque
+uma pela outra.
+
+```bash
+pveum acl delete /sdn/zones/localnetwork/vmbr0 --users lab@pve --roles PVESDNUser
+pveum acl modify /sdn/zones/localnetwork/vmbr2 --users lab@pve --roles PVESDNUser
+```
+
+Confira: `pveum acl list | grep 'lab@pve' | grep sdn` mostra só a `vmbr2`.
+As VMs que já existiam continuam na `vmbr0` até um `destroy` e `apply`.
 
 Se um `apply` falhar com `Permission check failed (<caminho>, <privilégio>)`,
 acrescente só aquele privilégio naquele caminho. Nunca dê papel na raiz `/`:
@@ -84,7 +100,8 @@ Tem que voltar `{"data":[]}`: o token não vê `caddy`, `forgejo`,
 ## 3. Snippets no storage `local`
 
 O cloud-init do lab usa um *vendor-data* que instala o qemu-guest-agent: é
-por ele que o Terraform descobre o IP que o DHCP deu à VM.
+por ele que o `apply` sabe que a VM terminou de subir, e o Proxmox a desliga
+direito.
 
 ```bash
 pvesm set local --content iso,vztmpl,backup,import,snippets

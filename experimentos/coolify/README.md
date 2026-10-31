@@ -12,7 +12,8 @@ Roda numa **VM** (900, `lab-coolify`), não em LXC: Docker em LXC precisa de
 
 - Proxmox preparado: [docs/proxmox.md](../../docs/proxmox.md)
 - `tag:lab` na ACL, auth key e `vault.yml`: [docs/tailscale.md](../../docs/tailscale.md)
-- Estar na LAN de casa: o primeiro acesso é pelo IP do DHCP.
+- Rede do lab no Proxmox (`vmbr2`): `ansible/docs/proxmox.md` do repo `infra`, "Rede do lab".
+- Tailscale SSH do Proxmox autenticado: `ssh root@proxmox true` (o Ansible salta por ele).
 
 ## Subir
 
@@ -25,7 +26,7 @@ terraform apply
 ```
 
 O `apply` espera o qemu-guest-agent responder (até 15 min no primeiro boot).
-Confira: `terraform output ip` mostra um IP da LAN.
+Confira: `terraform output ip` mostra `10.60.0.100` (o IP sai do VMID).
 
 ```bash
 cd ../ansible
@@ -33,21 +34,20 @@ ansible-playbook playbook.yml   # pede a senha do vault do lab
 ```
 
 **Crie a conta de admin assim que o playbook terminar:** o primeiro cadastro
-no painel vira admin, e a porta 8000 está aberta na LAN. (O Docker publica
-por cima de qualquer firewall da VM, então fechar no UFW não adiantaria.)
+no painel vira admin, e a porta 8000 está aberta para a tailnet (o que a ACL
+deixa chegar ao `tag:lab`).
 
 Confira:
 
-- `http://<ip>:8000` abre o cadastro do Coolify;
 - `lab-coolify` aparece na tailnet com `tag:lab` e *Ephemeral*;
-- `http://lab-coolify.<tailnet>.ts.net:8000` também abre (pela tailnet).
+- `http://lab-coolify.<tailnet>.ts.net:8000` abre o cadastro do Coolify.
 
 ## Destruir
 
 ```bash
 cd experimentos/coolify/terraform
 terraform destroy
-ssh-keygen -R "$(terraform output -raw ip 2>/dev/null)"   # se for recriar no mesmo IP
+ssh-keygen -R 10.60.0.100   # a VM recriada volta no mesmo IP, com host key nova
 ```
 
 O `destroy` apaga a VM e os discos. O nó some da tailnet sozinho (efêmero)
