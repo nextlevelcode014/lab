@@ -13,7 +13,9 @@ Roda numa **VM** (900, `lab-coolify`), não em LXC: Docker em LXC precisa de
 - Proxmox preparado: [docs/proxmox.md](../../docs/proxmox.md)
 - `tag:lab` na ACL, auth key e `vault.yml`: [docs/tailscale.md](../../docs/tailscale.md)
 - Rede do lab no Proxmox (`vmbr2`): `ansible/docs/proxmox.md` do repo `infra`, "Rede do lab".
-- Tailscale SSH do Proxmox autenticado: `ssh root@proxmox true` (o Ansible salta por ele).
+- SSH até as VMs do lab: [docs/proxmox.md](../../docs/proxmox.md), seção 5
+  (o Ansible salta pelo Proxmox).
+- Tailscale SSH do Proxmox autenticado: `ssh root@proxmox true`.
 
 ## Subir
 
@@ -40,7 +42,11 @@ deixa chegar ao `tag:lab`).
 Confira:
 
 - `lab-coolify` aparece na tailnet com `tag:lab` e *Ephemeral*;
-- `http://lab-coolify.<tailnet>.ts.net:8000` abre o cadastro do Coolify.
+- `http://lab-coolify:8000` abre o cadastro do Coolify.
+
+O endereço é o nome curto, com o `http://` digitado: o `ts.net` está na
+lista de HSTS dos navegadores, que trocam `http://` por `https://` em
+qualquer `*.ts.net`, e o painel só fala HTTP.
 
 ## Destruir
 

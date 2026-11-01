@@ -137,3 +137,41 @@ Confira: `pvesm list local --content import` mostra
 
 Imagem nova (atualização da Ubuntu): repita o passo 4. VMs já criadas não
 mudam; só as próximas.
+
+## 5. SSH da sua máquina para as VMs
+
+As VMs moram na `vmbr2` (`10.60.0.100-199`), sem rota daqui: o SSH salta
+pelo Proxmox. O `~/.ssh/config` é da sua máquina, fora do repo, e vale para
+o `ssh`, o `scp` e o Ansible.
+
+1. **Pôr a chave pública do lab em disco.** A privada fica no agente (do
+   Bitwarden), não em disco; o `ssh` só precisa da `.pub` para pedir ao
+   agente a privada certa. Use a mesma chave do `ssh_public_key` dos
+   `terraform.tfvars`:
+
+   ```bash
+   ssh-add -L | grep '<corpo da chave, o AAAA... do ssh_public_key>' > ~/.ssh/lab.pub
+   ```
+
+   Confira: `cat ~/.ssh/lab.pub` mostra uma linha `ssh-ed25519 AAAA...`.
+
+2. **Acrescentar ao `~/.ssh/config`:**
+
+   ```
+   Host 10.60.0.*
+       User lab
+       ProxyJump root@proxmox
+       IdentityFile ~/.ssh/lab.pub
+       IdentitiesOnly yes
+   ```
+
+   Sem o `IdentitiesOnly`, o agente oferece todas as chaves dele antes, e o
+   sshd da VM corta com `Too many authentication failures`. No Ansible isso
+   não aparece como erro: o `Esperar o SSH` tenta de novo por 5 minutos e
+   parece travado.
+
+   Confira, com uma VM no ar: `ssh 10.60.0.100 hostname` responde o nome
+   dela (antes, `ssh root@proxmox true` para o *check* do Tailscale SSH).
+
+Não dá para automatizar daqui: é a configuração da sua máquina e o seu
+agente de chaves.

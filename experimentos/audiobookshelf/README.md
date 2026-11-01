@@ -14,7 +14,9 @@ esse acesso, de propósito.
 - Proxmox preparado: [docs/proxmox.md](../../docs/proxmox.md)
 - `tag:lab` na ACL, auth key e `vault.yml`: [docs/tailscale.md](../../docs/tailscale.md)
 - Rede do lab no Proxmox (`vmbr2`): `ansible/docs/proxmox.md` do repo `infra`, "Rede do lab".
-- Tailscale SSH do Proxmox autenticado: `ssh root@proxmox true` (o Ansible, o `scp` e o `ssh` daqui saltam por ele).
+- SSH até as VMs do lab: [docs/proxmox.md](../../docs/proxmox.md), seção 5
+  (o Ansible e o `scp` daqui saltam pelo Proxmox).
+- Tailscale SSH do Proxmox autenticado: `ssh root@proxmox true`.
 
 ## Subir
 
@@ -41,8 +43,11 @@ ao painel cria o usuário `root`, e a porta 13378 está aberta para a tailnet
 Confira:
 
 - `lab-audiobookshelf` aparece na tailnet com `tag:lab` e *Ephemeral*;
-- `http://lab-audiobookshelf.<tailnet>.ts.net:13378` abre a tela de criar o
-  root.
+- `http://lab-audiobookshelf:13378` abre a tela de criar o root.
+
+O endereço é o nome curto, com o `http://` digitado: o `ts.net` está na
+lista de HSTS dos navegadores, que trocam `http://` por `https://` em
+qualquer `*.ts.net`, e o app só fala HTTP.
 
 ## Testar
 
@@ -52,7 +57,7 @@ Confira:
 
    ```bash
    unzip livro.zip -d "Nome do Livro"
-   scp -J root@proxmox -r "Nome do Livro" lab@10.60.0.101:/srv/audiobookshelf/audiobooks/
+   scp -r "Nome do Livro" 10.60.0.101:/srv/audiobookshelf/audiobooks/
    ```
 
    No painel: *Settings → Libraries → Add Library*, tipo *Books*, pasta
@@ -64,7 +69,7 @@ Confira:
    navegador.
 
 3. **Celular.** Instale o app Audiobookshelf, com o celular na tailnet, e
-   aponte para `http://lab-audiobookshelf.<tailnet>.ts.net:13378`. Ouça uns
+   aponte para `http://lab-audiobookshelf:13378`. Ouça uns
    minutos no celular e abra o mesmo livro no navegador. Confira: o
    navegador continua de onde o celular parou.
 
@@ -73,7 +78,7 @@ Confira:
    VM:
 
    ```bash
-   scp -J root@proxmox "lab@10.60.0.101:/srv/audiobookshelf/metadata/backups/*.audiobookshelf" .
+   scp "10.60.0.101:/srv/audiobookshelf/metadata/backups/*.audiobookshelf" .
    ```
 
    Destrua e recrie a VM (`terraform destroy`, `ssh-keygen -R 10.60.0.101`,

@@ -34,6 +34,57 @@
         lab_cloud_init.rc not in [0, 2]
         or (lab_cloud_init.stdout | from_json).errors | length > 0
 
+    # DNS por TLS (porta 853): Quad9 primeiro e Cloudflare de reserva. A
+    # rede de casa já bloqueou o Quad9 inteiro (53, 853 e 443) e deixou a
+    # Cloudflare passar; o resolved troca de servidor sozinho quando um
+    # falha. Cifrado, a rede também não vê o que o lab consulta.
+    #
+    # Os servidores vão no link eth0, com o nome para validar o certificado
+    # (#dns.quad9.net). O cloud-init já põe o Quad9 ali, mas sem nome, e o
+    # resolved usa o servidor do link antes do global: com TLS e sem nome, a
+    # consulta não completa. O DNS= vazio apaga a lista do netplan.
+    - name: Criar os diretórios de config do DNS
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /etc/systemd/network/10-netplan-eth0.network.d
+        - /etc/systemd/resolved.conf.d
+
+    - name: Pôr o Quad9 e a Cloudflare com nome no eth0
+      ansible.builtin.copy:
+        dest: /etc/systemd/network/10-netplan-eth0.network.d/lab-dns.conf
+        mode: "0644"
+        content: |
+          # Gerido pelo Ansible (experimento do lab).
+          [Network]
+          DNS=
+          DNS=9.9.9.9#dns.quad9.net 1.1.1.1#cloudflare-dns.com 149.112.112.112#dns.quad9.net 1.0.0.1#cloudflare-dns.com
+          DNSOverTLS=yes
+      register: lab_dns_link
+
+    - name: Exigir TLS no resolved
+      ansible.builtin.copy:
+        dest: /etc/systemd/resolved.conf.d/lab-dns.conf
+        mode: "0644"
+        content: |
+          # Gerido pelo Ansible (experimento do lab).
+          [Resolve]
+          DNSOverTLS=yes
+      register: lab_dns_resolved
+
+    - name: Aplicar o DNS no eth0
+      ansible.builtin.shell: networkctl reload && networkctl reconfigure eth0
+      when: lab_dns_link is changed
+      changed_when: true
+
+    - name: Aplicar o DNS no resolved
+      ansible.builtin.systemd_service:
+        name: systemd-resolved
+        state: restarted
+      when: lab_dns_link is changed or lab_dns_resolved is changed
+
     - name: Coletar fatos
       ansible.builtin.setup:
 
@@ -41,7 +92,10 @@
     - role: artis3n.tailscale.machine
       vars:
         tailscale_authkey: "{{ vault_tailscale_authkey }}"
-        tailscale_args: "--ssh --hostname={{ inventory_hostname }}"
+        # --accept-dns=false: o DNS da tailnet aponta primeiro para o AdGuard
+        # do Pi, que a ACL não deixa o tag:lab alcançar; a VM fica no DNS
+        # por TLS acima.
+        tailscale_args: "--ssh --accept-dns=false --hostname={{ inventory_hostname }}"
 
   tasks:
     # O instalador põe Docker, sobe o Coolify em /data/coolify e toma as

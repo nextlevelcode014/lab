@@ -52,8 +52,14 @@ novo entra na tabela do `README.md` da raiz.
   só sai para a internet, por NAT. IP fixo tirado do VMID (900 →
   `10.60.0.100`), no `modules/proxmox-vm`. Daqui não há rota até ela: o SSH
   e o Ansible saltam pelo Proxmox (`-J root@proxmox` no `ansible.cfg`), e o
-  navegador chega pela tailnet depois que o playbook a põe lá. Nunca a
-  `vmbr0`: ela é a LAN de onde o notebook estiver.
+  navegador chega pela tailnet depois que o playbook a põe lá, pelo nome
+  curto (`http://lab-<app>:<porta>`: `*.ts.net` é HSTS). Nunca a `vmbr0`:
+  ela é a LAN de onde o notebook estiver.
+- DNS da VM por TLS, Quad9 primeiro e Cloudflare de reserva, e
+  `--accept-dns=false` no Tailscale (a rede de casa já bloqueou o Quad9
+  inteiro, e o DNS da tailnet aponta para o AdGuard do Pi, fora do alcance
+  do `tag:lab`). Experimento novo copia as
+  duas tasks do playbook do `audiobookshelf`.
 - A imagem do Ubuntu e o snippet são colocados à mão, como root
   (`docs/proxmox.md`): o token do lab não tem permissão para isso, de
   propósito.
