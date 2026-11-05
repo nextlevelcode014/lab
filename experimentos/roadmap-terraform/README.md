@@ -20,3 +20,4 @@ próprio e a limpeza passa por `terraform destroy`.
 | [08-estado](08-estado/README.md) | Segredo no state, backend S3 (`-migrate-state`, `-backend-config`), versões do state, `use_lockfile`, `-lock-timeout`, bloco `import` com `-generate-config-out`, `terraform_remote_state` |
 | [09-boas-praticas-estado](09-boas-praticas-estado/README.md) | State fora do git e do disco, bucket do state com cifra, só TLS, lifecycle e `prevent_destroy`, arquivo `.tfbackend`, drift com `-refresh-only`, `refresh` sem cuidado e volta pela versão do S3 |
 | [10-formatar-e-validar](10-formatar-e-validar/README.md) | Formatação com `fmt`, validação de referências e declarações sem uso com TFLint |
+| [11-deployment](11-deployment/README.md) | Revisar e aplicar um plano salvo, comparar com o apply interativo e verificar o state local |
