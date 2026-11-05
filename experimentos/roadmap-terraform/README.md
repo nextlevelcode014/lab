@@ -22,3 +22,4 @@ próprio e a limpeza passa por `terraform destroy`.
 | [10-formatar-e-validar](10-formatar-e-validar/README.md) | Formatação com `fmt`, validação de referências e declarações sem uso com TFLint |
 | [11-deployment](11-deployment/README.md) | Revisar e aplicar um plano salvo, comparar com o apply interativo e verificar o state local |
 | [12-limpeza](12-limpeza/README.md) | Prever, cancelar e confirmar a destruição, observar dependências e conferir o state |
+| [13-inspecionar-state](13-inspecionar-state/README.md) | Inspecionar plano, grafo e state, mover e esquecer vínculos, substituir um recurso e restaurar uma cópia |
