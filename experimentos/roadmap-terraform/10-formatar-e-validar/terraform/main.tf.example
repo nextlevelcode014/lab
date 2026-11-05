@@ -1,0 +1,13 @@
+variable "project_name" {
+  type=string
+  default="roadmap"
+}
+
+variable "environment" {
+  type    = string
+  default = "dev"
+}
+
+output "project" {
+  value=var.project
+}
