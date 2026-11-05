@@ -1,0 +1,22 @@
+[Unit]
+Description=Rotear nomes da tailnet ao MagicDNS local
+Requires=systemd-resolved.service
+Wants=tailscaled.service
+After=systemd-resolved.service tailscaled.service
+PartOf=systemd-resolved.service tailscaled.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# tailscale0 pode ainda não existir quando tailscaled inicia. Uma falha
+# tenta novamente, sem bloquear a disponibilidade do DNS público.
+ExecStart=/usr/bin/resolvectl dns tailscale0 100.100.100.100
+ExecStart=/usr/bin/resolvectl dnsovertls tailscale0 no
+ExecStart=/usr/bin/resolvectl domain tailscale0 @TAILNET@
+ExecStart=/usr/bin/resolvectl default-route tailscale0 no
+Restart=on-failure
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target tailscaled.service systemd-resolved.service

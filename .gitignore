@@ -16,3 +16,8 @@ terraform.tfvars.json
 *.retry
 .vault-pass
 vault.yml
+
+# Artefatos locais dos ensaios: planos também podem guardar credenciais.
+*.tfplan
+.private/
+__pycache__/

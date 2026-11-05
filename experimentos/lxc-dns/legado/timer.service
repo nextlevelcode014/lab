@@ -1,0 +1,16 @@
+[Unit]
+Description=Rotear nomes da tailnet ao MagicDNS local
+Requires=systemd-resolved.service
+Wants=tailscaled.service
+After=systemd-resolved.service tailscaled.service
+PartOf=systemd-resolved.service tailscaled.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+# O timer confere novamente após alterações assíncronas do tailscaled.
+ExecStart=/usr/local/sbin/lxc-magicdns
+TimeoutStartSec=15s
+
+[Install]
+WantedBy=multi-user.target tailscaled.service systemd-resolved.service

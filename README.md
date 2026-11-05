@@ -32,6 +32,7 @@ Acoplar os repos traria de volta o risco que a separação existe para evitar.
 
 | Experimento | Onde | O que testa |
 |---|---|---|
+| [lxc-dns](experimentos/lxc-dns/README.md) | Proxmox (LXC 902) | DNS público, MagicDNS, persistência e rollback com Docker; execução depende de autorização |
 | [coolify](experimentos/coolify/README.md) | Proxmox (VM 900) | Coolify como PaaS self-hosted |
 | [coolify-hetzner](experimentos/coolify-hetzner/README.md) | Hetzner (cx23, projeto lab) | Coolify com IP público: deploy de site e TLS |
 | [audiobookshelf](experimentos/audiobookshelf/README.md) | Proxmox (VM 901) | Audiobookshelf: biblioteca, app no celular e backup que volta |

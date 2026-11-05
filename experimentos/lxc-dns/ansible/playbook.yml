@@ -1,0 +1,19 @@
+---
+- name: Aplicar somente o DNS sob teste
+  hosts: lxc_dns_test
+  gather_facts: true
+  pre_tasks:
+    - ansible.builtin.import_tasks: alvo.yml
+    - name: Ler o domínio do nó de teste já cadastrado
+      ansible.builtin.command: /usr/bin/tailscale status --json
+      register: lab_tailscale_status
+      changed_when: false
+      check_mode: false
+      no_log: true
+    - name: Usar o domínio real sem gravá-lo no inventário
+      ansible.builtin.set_fact:
+        lxc_dns_tailnet_enabled: true
+        lxc_dns_tailnet_domain: "{{ (lab_tailscale_status.stdout | from_json).Self.DNSName.rstrip('.').split('.', 1)[1] }}"
+      no_log: true
+  roles:
+    - lxc_dns

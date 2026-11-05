@@ -1,0 +1,9 @@
+---
+- name: Recusar qualquer alvo diferente do LXC descartável
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == 'lab-dns-pr69'
+      - ansible_host == '10.60.0.102'
+      - lxc_vmid | int == 902
+      - ansible_facts.hostname == 'lab-dns-pr69'
+      - ansible_facts.virtualization_type == 'lxc'

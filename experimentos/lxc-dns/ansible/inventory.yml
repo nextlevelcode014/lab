@@ -1,0 +1,3 @@
+# State próprio deste experimento; rode de dentro de ansible/.
+plugin: cloud.terraform.terraform_provider
+project_path: ../terraform

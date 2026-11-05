@@ -1,0 +1,109 @@
+---
+# Instala serviços e cria o baseline. Nunca chamar depois do snapshot.
+- name: Preparar baseline do LXC de teste
+  hosts: lxc_dns_test
+  gather_facts: true
+  vars_files:
+    - "{{ lab_vault_file | default(playbook_dir + '/../../../vault.yml') }}"
+  pre_tasks:
+    - ansible.builtin.import_tasks: alvo.yml
+    - name: Recusar preparação por cima do snapshot do ensaio
+      ansible.builtin.stat:
+        path: /root/antes-pr69-tailnet
+      register: lab_snapshot
+    - name: Exigir baseline ainda não congelado
+      ansible.builtin.assert:
+        that: not lab_snapshot.stat.exists
+    - name: Instalar ferramentas somente no LXC
+      ansible.builtin.apt:
+        name: [ca-certificates, python3, dnsutils, openssl, tcpdump]
+        update_cache: true
+        state: present
+  roles:
+    - role: artis3n.tailscale.machine
+      vars:
+        tailscale_authkey: "{{ vault_tailscale_authkey }}"
+        tailscale_args: "--accept-dns=false --accept-routes=false --advertise-tags=tag:lab --hostname=lab-dns-pr69"
+  tasks:
+    - name: Ler o cadastro do nó de teste
+      ansible.builtin.command: tailscale status --json
+      register: lab_ts
+      changed_when: false
+      no_log: true
+    - name: Guardar sufixo privado em memória
+      ansible.builtin.set_fact:
+        lab_tailnet: "{{ (lab_ts.stdout | from_json).Self.DNSName.rstrip('.').split('.', 1)[1] }}"
+      no_log: true
+    - name: Criar diretórios do baseline
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /etc/systemd/network/eth0.network.d
+        - /etc/systemd/resolved.conf.d
+        - /etc/docker
+    - name: Baseline público Cloudflare com DoT
+      ansible.builtin.copy:
+        dest: /etc/systemd/network/eth0.network.d/50-lab-baseline.conf
+        mode: "0644"
+        content: |
+          [Network]
+          DNS=
+          DNS=1.1.1.1#one.one.one.one
+          Domains=
+          Domains=~.
+          DNSOverTLS=yes
+          DNSDefaultRoute=yes
+    - name: Baseline MagicDNS global
+      ansible.builtin.copy:
+        dest: /etc/systemd/resolved.conf.d/50-lab-baseline.conf
+        mode: "0644"
+        content: |
+          [Resolve]
+          DNS=
+          DNS=100.100.100.100
+          FallbackDNS=
+          Domains=
+          Domains={{ lab_tailnet }}
+          DNSOverTLS=no
+          DNSSEC=no
+          DNSStubListener=yes
+          LLMNR=no
+          MulticastDNS=no
+      no_log: true
+    - name: Aplicar rede do baseline
+      ansible.builtin.command: networkctl reload
+      changed_when: true
+    - name: Iniciar resolved com o baseline
+      ansible.builtin.systemd_service:
+        name: systemd-resolved
+        state: restarted
+        enabled: true
+    - name: Clientes do baseline usam stub
+      ansible.builtin.file:
+        path: /etc/resolv.conf
+        src: /run/systemd/resolve/stub-resolv.conf
+        state: link
+        follow: false
+        force: true
+    - name: Configurar Docker antes da primeira instalação
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        mode: "0644"
+        content: |
+          {
+            "data-root": "/srv/docker-pr69",
+            "dns": ["1.1.1.1"],
+            "log-driver": "json-file",
+            "log-opts": {"max-size": "10m"}
+          }
+    - name: Instalar Docker do Ubuntu
+      ansible.builtin.apt:
+        name: docker.io
+        state: present
+    - name: Garantir Docker ativo no baseline
+      ansible.builtin.systemd_service:
+        name: docker
+        state: restarted
+        enabled: true

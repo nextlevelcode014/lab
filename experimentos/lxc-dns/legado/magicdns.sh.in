@@ -1,0 +1,23 @@
+#!/bin/sh
+# Gerido pelo Ansible. Corrige somente divergências, sem limpar caches.
+set -eu
+export LC_ALL=C
+
+conferir() {
+    atual=$(/usr/bin/resolvectl "$1" tailscale0) || return 1
+    [ "${atual#*: }" = "$2" ]
+}
+
+# Sem interface ainda, o timer tenta novamente na próxima execução.
+[ -d /sys/class/net/tailscale0 ] || exit 0
+if conferir dns 100.100.100.100 &&
+   conferir dnsovertls no &&
+   conferir domain '@TAILNET@' &&
+   conferir default-route no; then
+    exit 0
+fi
+
+/usr/bin/resolvectl dns tailscale0 100.100.100.100
+/usr/bin/resolvectl dnsovertls tailscale0 no
+/usr/bin/resolvectl domain tailscale0 '@TAILNET@'
+/usr/bin/resolvectl default-route tailscale0 no
