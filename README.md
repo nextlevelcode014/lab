@@ -1,7 +1,7 @@
 # lab
 
 Laboratório da NextLevelCode: Terraform e Ansible para testar coisas que **não
-são a infra de produção** (essa mora nos repos `terraform` e `ansible`). Aqui
+são a infra de produção** (essa mora no repo `infra`). Aqui
 tudo é descartável: cada experimento sobe, é testado e é destruído.
 
 ## Regra de ouro: o lab não alcança a produção
@@ -27,6 +27,18 @@ modules/          módulos Terraform reaproveitados entre experimentos
 
 Roles e módulos da produção **não** são importados: copie o que precisar.
 Acoplar os repos traria de volta o risco que a separação existe para evitar.
+
+## Fluxo de mudança
+
+As instruções dos agentes estão no [AGENTS.md](AGENTS.md), com orientações
+para [experimentos](experimentos/AGENTS.md) e [módulos](modules/AGENTS.md).
+O [contrato comum de risco e evidências](https://forge.nextlevelcode.pro/nextlevelcode/infra/src/commit/ac72e0a78b42f9c1779dafc578904da16dda4659/docs/fluxo-de-mudanca.md)
+define como registrar a reprodução, o código testado e os limites de um ensaio.
+Mudanças passam por branch, PR e squash merge manual pelo responsável.
+
+O andamento do roadmap aprovado é acompanhado no `PLAN.md` local do `infra`,
+mantido fora do Git por orientação do responsável. As regras necessárias
+para trabalhar neste repositório estão nos arquivos versionados acima.
 
 ## Experimentos
 

@@ -1,7 +1,7 @@
 # Tailscale: tag:lab
 
-Máquina do lab entra na tailnet com `tag:lab`. A ACL (no repo `ansible`,
-`tailscale/policy.hujson`) deixa os desktops de administração alcançarem o
+Máquina do lab entra na tailnet com `tag:lab`. A ACL (no repo `infra`,
+[`ansible/tailscale/policy.hujson`](https://forge.nextlevelcode.pro/nextlevelcode/infra/src/branch/main/ansible/tailscale/policy.hujson)) deixa os desktops de administração alcançarem o
 lab, e **não** deixa o `tag:lab` alcançar nada da infra; os `tests` dela
 falham o save se isso mudar.
 
