@@ -23,3 +23,4 @@ próprio e a limpeza passa por `terraform destroy`.
 | [11-deployment](11-deployment/README.md) | Revisar e aplicar um plano salvo, comparar com o apply interativo e verificar o state local |
 | [12-limpeza](12-limpeza/README.md) | Prever, cancelar e confirmar a destruição, observar dependências e conferir o state |
 | [13-inspecionar-state](13-inspecionar-state/README.md) | Inspecionar plano, grafo e state, mover e esquecer vínculos, substituir um recurso e restaurar uma cópia |
+| [14-modulos](14-modulos/README.md) | Root e child modules, duas instâncias locais, entradas, saídas, contrato e leitura de módulo publicado |
