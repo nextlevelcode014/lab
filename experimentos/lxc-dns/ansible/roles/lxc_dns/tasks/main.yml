@@ -91,6 +91,10 @@
 - name: Aplicar o DNS público antes de trocar o resolv.conf
   ansible.builtin.meta: flush_handlers
 
+- name: Limpar estado transitório da integração anterior com MagicDNS
+  ansible.builtin.include_tasks: limpar-legado.yml
+  when: lxc_dns_magicdns_active | bool
+
 - name: Apontar os clientes ao stub local
   ansible.builtin.file:
     path: /etc/resolv.conf

@@ -247,9 +247,9 @@ pois ela não existe no baseline deste LXC novo.
 
 ## Evidências e destruição
 
-Registrar resultados sanitizados no PR/runbook do infra, com o commit do role
-em ORIGEM.md. Logs privados, snapshots e contexto não vão ao Git. O procedimento acima
-é reproduzível; os resultados desta execução estão registrados abaixo.
+Registrar os resultados sanitizados no PR, com o SHA completo testado no lab
+e a revisão do role em [ORIGEM.md](ORIGEM.md). Manter logs privados e snapshots
+fora do Git.
 
 Com autorização de limpeza, de `terraform/`:
 
@@ -270,6 +270,7 @@ explicitamente essa ação, sem revogar a chave compartilhada do lab.
 De `ansible/`, sem aplicar playbooks nem usar o vault:
 
 ```bash
+ansible-playbook -i 'localhost,' --syntax-check playbook.yml
 python3 -m unittest discover -s roles/lxc_dns/tests -p 'test_*.py' -v
 python3 roles/lxc_dns/tests/integracao.py
 ```
@@ -278,9 +279,14 @@ Confira: código zero. Integração requer as ferramentas/namespaces descritos
 no teste; não instalar dependências automaticamente. Esses checks não substituem
 o ensaio real de Tailscale, Docker, reboot ou rollback acima.
 
-## Resultado de 03/11/2026
+## Resultados históricos de 03/11/2026
 
-Role de `infra@5a4627f`, cópia descrita em ORIGEM.md; Ubuntu 26.04,
+O ensaio inicial e o complemento abaixo usaram a cópia de `infra@5a4627f`
+registrada em [ORIGEM.md](ORIGEM.md#c%C3%B3pia-hist%C3%B3rica-de-03112026).
+Os checks locais e as reexecuções da cópia atual ficam registrados no
+[PR #13](https://forge.nextlevelcode.pro/nextlevelcode/lab/pulls/13).
+
+Ambiente do ensaio inicial: Ubuntu 26.04,
 systemd `259.5-0ubuntu3`, Tailscale `1.104.5`, Docker `29.1.3`.
 O token e a auth key foram os existentes do lab; não houve troca de chaves,
 ACLs ou DNS global. O arquivo temporário de senha do vault foi removido.
@@ -381,8 +387,10 @@ reaplicação termina em `changed=0`. Na raiz do experimento:
 
 ```bash
 lab_ssh 'python3 /root/pr69-legado.py novo timer'
+lab_ssh 'resolvectl dns tailscale0 && resolvectl domain tailscale0'
 lab_ssh 'systemctl restart tailscaled; sleep 15; python3 /root/pr69-legado.py novo timer'
 lab_ssh 'systemctl restart systemd-resolved; sleep 15; python3 /root/pr69-legado.py novo timer'
+lab_ssh 'resolvectl dns tailscale0 && resolvectl domain tailscale0'
 lab_ssh 'cat /proc/sys/kernel/random/boot_id'
 ssh root@proxmox 'pct reboot 902'
 ```
@@ -393,7 +401,9 @@ Depois do retorno do SSH e da estabilização dos serviços:
 lab_ssh 'cat /proc/sys/kernel/random/boot_id; python3 /root/pr69-legado.py novo timer'
 ```
 
-Confira: boot_id mudou; público por eth0 com os dois provedores e DoT,
+Confira: as consultas com `resolvectl` mostram `tailscale0` sem servidores DNS
+ou domínios após a migração e após reiniciar o resolved. O boot_id mudou;
+DNS público por eth0 com os dois provedores e DoT,
 MagicDNS FQDN/curto no host e em Docker, configuração/identidade e a mesma
 carga/sentinela SQL preservadas. Reaplicar em `ansible/` e exigir `changed=0`.
 Os reinícios e reboot são manuais por interromperem o LXC de teste.
@@ -461,7 +471,7 @@ pois já usavam `172.17.0.1`; o InvocationID permaneceu igual no rollback.
 O primeiro ensaio acima cobre o caso complementar em que o DNS do daemon
 muda e exige restart real, com a sentinela também preservada.
 
-O 902 voltou ao baseline original com `legado.py limpar`, e o validador
+O 902 voltou ao baseline original com `pr69-legado.py limpar`, e o validador
 original aprovou a restauração. Snapshots por perfil e evidências privadas
 foram preservados. Produção recebeu somente inspeções de leitura.
 A matriz cobre os dois estados distintos encontrados nos três alvos, usando

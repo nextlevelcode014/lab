@@ -309,7 +309,20 @@ def filho(base):
         consulta('público após reiniciar networkd', publico('networkd'))
         run('ip', 'link', 'add', 'tailscale0', 'type', 'dummy')
         run('ip', 'link', 'set', 'tailscale0', 'up')
+        # Reproduzir o legado real: o resolved guarda estado de resolvectl
+        # em /run e o recupera após reiniciar, sem nenhuma unit de reparo.
+        run('resolvectl', 'dns', 'tailscale0', '100.100.100.100')
+        run('resolvectl', 'domain', 'tailscale0', dominio)
+        run('resolvectl', 'dnsovertls', 'tailscale0', 'no')
+        run('resolvectl', 'default-route', 'tailscale0', 'no')
+        reiniciar('resolved', '/usr/lib/systemd/systemd-resolved')
+        assert '100.100.100.100' in run('resolvectl', 'dns', 'tailscale0')
+        assert dominio in run('resolvectl', 'domain', 'tailscale0')
+        resultados.append({'teste': 'estado legado sobrevive ao restart do resolved', 'resultado': 'ok'})
         run('resolvectl', 'revert', 'tailscale0')
+        assert not run('resolvectl', 'dns', 'tailscale0').split(':', 1)[1].strip()
+        assert not run('resolvectl', 'domain', 'tailscale0').split(':', 1)[1].strip()
+        consulta('público após limpar estado legado de tailscale0', publico('legacy-cleanup'))
         consulta('MagicDNS após limpar tailscale0', curto, ip_privado)
         for provider in providers:
             provider.estado('reject')
