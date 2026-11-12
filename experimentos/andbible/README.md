@@ -43,11 +43,12 @@ descartáveis de teste. O piloto está sem backup.
 
    No primeiro plano, confira duas criações (LXC e host Ansible), o VMID
    903, o pool `lab`, a bridge `vmbr2` e a ausência de alterações em
-   recursos existentes. O plano também deve mostrar `nesting = true`,
-   exigido pelo systemd do template Ubuntu mesmo sem Docker. Guarde o
-   plano localmente, pois pode conter segredos.
-3. Libere o TUN e inicie apenas o LXC dedicado. O passthrough do dispositivo
-   exige `root@pam` no Proxmox, fora das permissões do token do lab.
+   recursos existentes. Guarde o plano localmente, pois pode conter segredos.
+3. Configure nesting e TUN no LXC dedicado antes de iniciá-lo. O systemd do
+   template Ubuntu precisa de nesting para inicializar a rede. O token do
+   lab não pode aplicar o bloco de flags enviado pelo provider, e o
+   passthrough exige `root@pam`. Use a sessão root do Proxmox para os
+   dois ajustes.
 
    ```bash
    ssh root@proxmox 'set -e
@@ -55,15 +56,17 @@ descartáveis de teste. O piloto está sem backup.
    printf "%s\n" "$config" | grep -qx "hostname: lab-andbible"
    printf "%s\n" "$config" | grep -qx "unprivileged: 1"
    printf "%s\n" "$config" | grep -E "^net0: .*bridge=vmbr2(,|$)"
-   printf "%s\n" "$config" | grep -E "^features: (.*[, ])?nesting=1(,|$)"
+   pct set 903 --features nesting=1
    pct set 903 --dev0 /dev/net/tun
    pct start 903
+   pct config 903 | grep -qx "features: nesting=1"
    pct exec 903 -- test -c /dev/net/tun'
    ```
 
-   A última checagem deve terminar com código zero. Se a primeira execução
-   parar após o start, confira o TUN e o estado do LXC antes de repetir
-   esses comandos.
+   As duas checagens devem terminar com código zero. Se o LXC já estiver
+   rodando sem nesting, confira nome, bridge e VMID, e desligue apenas ele
+   com `ssh root@proxmox 'pct shutdown 903 --timeout 15 --forceStop 1'`
+   antes de repetir este passo.
 4. Configure o LXC a partir do diretório Terraform.
 
    ```bash
