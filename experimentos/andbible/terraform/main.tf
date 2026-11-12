@@ -55,6 +55,7 @@ resource "proxmox_virtual_environment_container" "andbible" {
     dns { servers = ["9.9.9.9", "1.1.1.1"] }
     user_account { keys = [var.ssh_public_key] }
   }
+  features { nesting = true }
   lifecycle {
     # Só root@pam pode liberar o TUN e iniciar o LXC preparado.
     ignore_changes = [device_passthrough, started]

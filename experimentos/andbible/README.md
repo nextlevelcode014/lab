@@ -43,7 +43,9 @@ descartáveis de teste. O piloto está sem backup.
 
    No primeiro plano, confira duas criações (LXC e host Ansible), o VMID
    903, o pool `lab`, a bridge `vmbr2` e a ausência de alterações em
-   recursos existentes. Guarde o plano localmente, pois pode conter segredos.
+   recursos existentes. O plano também deve mostrar `nesting = true`,
+   exigido pelo systemd do template Ubuntu mesmo sem Docker. Guarde o
+   plano localmente, pois pode conter segredos.
 3. Libere o TUN e inicie apenas o LXC dedicado. O passthrough do dispositivo
    exige `root@pam` no Proxmox, fora das permissões do token do lab.
 
@@ -53,6 +55,7 @@ descartáveis de teste. O piloto está sem backup.
    printf "%s\n" "$config" | grep -qx "hostname: lab-andbible"
    printf "%s\n" "$config" | grep -qx "unprivileged: 1"
    printf "%s\n" "$config" | grep -E "^net0: .*bridge=vmbr2(,|$)"
+   printf "%s\n" "$config" | grep -E "^features: (.*[, ])?nesting=1(,|$)"
    pct set 903 --dev0 /dev/net/tun
    pct start 903
    pct exec 903 -- test -c /dev/net/tun'
