@@ -48,4 +48,5 @@ para trabalhar neste repositório estão nos arquivos versionados acima.
 | [coolify](experimentos/coolify/README.md) | Proxmox (VM 900) | Coolify como PaaS self-hosted |
 | [coolify-hetzner](experimentos/coolify-hetzner/README.md) | Hetzner (cx23, projeto lab) | Coolify com IP público: deploy de site e TLS |
 | [audiobookshelf](experimentos/audiobookshelf/README.md) | Proxmox (VM 901) | Audiobookshelf: biblioteca, app no celular e backup que volta |
+| [andbible](experimentos/andbible/README.md) | Proxmox (LXC 903) | Sincronização WebDAV por HTTPS em dois aparelhos |
 | [roadmap-terraform](experimentos/roadmap-terraform/README.md) | Local ou Proxmox (VMs 990–999) | Exercícios do roadmap.sh de Terraform, um por tópico |

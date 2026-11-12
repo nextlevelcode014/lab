@@ -1,0 +1,24 @@
+<VirtualHost 127.0.0.1:8443>
+    ServerName lab-andbible
+    SSLEngine On
+    SSLCertificateFile /etc/ssl/certs/ssl-cert-snakeoil.pem
+    SSLCertificateKeyFile /etc/ssl/private/ssl-cert-snakeoil.key
+
+    DocumentRoot /srv/andbible
+    DavLockDB /var/lib/dav/lockdb
+    <Directory "/srv/andbible">
+        Options None
+        AllowOverride None
+        Require all denied
+    </Directory>
+{% for conta in andbible_contas %}
+    <Directory "/srv/andbible/dav/{{ conta }}">
+        Dav On
+        DirectorySlash Off
+        AuthType Basic
+        AuthName "AndBible Lab"
+        AuthUserFile /etc/apache2/andbible.htpasswd
+        Require user {{ conta }}
+    </Directory>
+{% endfor %}
+</VirtualHost>

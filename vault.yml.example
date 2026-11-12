@@ -11,3 +11,8 @@ vault_borg_passphrase: "..."
 # PAT clássico do GitHub, só `read:packages`: o pull da imagem privada do
 # coolify-teste-app no GHCR (README do experimento, seção CI/CD).
 vault_ghcr_pat: "ghp_..."
+
+# Piloto do AndBible. Gere dois hashes independentes com openssl passwd -6.
+vault_andbible_dav_hashes:
+  teste-1: '<hash-SHA512-crypt-da-primeira-senha>'
+  teste-2: '<hash-SHA512-crypt-da-segunda-senha>'

@@ -1,0 +1,224 @@
+---
+- name: Configurar WebDAV para o piloto do AndBible
+  hosts: andbible
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../vault.yml"
+  vars:
+    andbible_contas: [teste-1, teste-2]
+    andbible_proxy: https+insecure://127.0.0.1:8443
+
+  pre_tasks:
+    - name: Recusar inventário fora do piloto
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname == 'lab-andbible'
+          - ansible_host == '10.60.0.103'
+          - lxc_vmid | int == 903
+
+    - name: Conferir os segredos do piloto
+      ansible.builtin.assert:
+        that:
+          - vault_tailscale_authkey | default('') is match('^tskey-auth-')
+          - vault_andbible_dav_hashes[item] | default('') is regex('[$]6[$][./0-9A-Za-z]{1,16}[$][./0-9A-Za-z]{86}', match_type='fullmatch')
+      loop: "{{ andbible_contas }}"
+      no_log: true
+
+    - name: Esperar o SSH do LXC
+      ansible.builtin.wait_for_connection:
+        timeout: 120
+
+    - name: Identificar o alvo remoto
+      ansible.builtin.setup:
+
+    - name: Recusar alterações fora do LXC dedicado
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.hostname == 'lab-andbible'
+          - ansible_facts.virtualization_type == 'lxc'
+          - ansible_facts.default_ipv4.address == '10.60.0.103'
+
+    - name: Conferir que o Proxmox liberou o TUN
+      ansible.builtin.stat:
+        path: /dev/net/tun
+      register: andbible_tun
+
+    - name: Exigir o dispositivo TUN
+      ansible.builtin.assert:
+        that: andbible_tun.stat.ischr | default(false)
+
+    - name: Criar diretório de configuração do resolved
+      ansible.builtin.file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Configurar Quad9 e Cloudflare por TLS
+      ansible.builtin.copy:
+        dest: /etc/systemd/resolved.conf.d/lab-dns.conf
+        mode: "0644"
+        content: |
+          [Resolve]
+          DNS=9.9.9.9#dns.quad9.net 1.1.1.1#cloudflare-dns.com 149.112.112.112#dns.quad9.net 1.0.0.1#cloudflare-dns.com
+          Domains=~.
+          DNSOverTLS=yes
+      notify: Reiniciar resolved
+
+    - name: Preservar o resolved nas reinicializações do LXC
+      ansible.builtin.copy:
+        dest: /etc/.pve-ignore.resolv.conf
+        content: ""
+        mode: "0644"
+
+    - name: Ativar systemd-resolved
+      ansible.builtin.systemd_service:
+        name: systemd-resolved
+        enabled: true
+        state: started
+
+    - name: Aplicar o DNS antes de instalar pacotes
+      ansible.builtin.meta: flush_handlers
+
+    - name: Apontar o resolvedor para o stub
+      ansible.builtin.file:
+        path: /etc/resolv.conf
+        src: /run/systemd/resolve/stub-resolv.conf
+        state: link
+        force: true
+        follow: false
+
+  roles:
+    - role: artis3n.tailscale.machine
+      vars:
+        tailscale_authkey: "{{ vault_tailscale_authkey }}"
+        tailscale_args: "--accept-dns=false --accept-routes=false --advertise-tags=tag:lab --hostname=lab-andbible"
+
+  tasks:
+    - name: Instalar Apache sem iniciar o site padrão
+      ansible.builtin.apt:
+        name: [apache2, ssl-cert]
+        update_cache: true
+        cache_valid_time: 3600
+        policy_rc_d: 101
+
+    - name: Criar os diretórios que delimitam o WebDAV
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - /srv/andbible
+        - /srv/andbible/dav
+
+    - name: Criar uma pasta de dados por conta
+      ansible.builtin.file:
+        path: "/srv/andbible/dav/{{ item }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0750"
+      loop: "{{ andbible_contas }}"
+
+    - name: Criar diretório para os bloqueios WebDAV
+      ansible.builtin.file:
+        path: /var/lib/dav
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0750"
+
+    - name: Gravar os hashes de autenticação
+      ansible.builtin.copy:
+        dest: /etc/apache2/andbible.htpasswd
+        owner: root
+        group: www-data
+        mode: "0640"
+        content: |
+          {% for conta in andbible_contas %}
+          {{ conta }}:{{ vault_andbible_dav_hashes[conta] }}
+          {% endfor %}
+      no_log: true
+
+    - name: Habilitar DAV e TLS
+      ansible.builtin.command:
+        argv: [a2enmod, "{{ item }}"]
+        creates: "/etc/apache2/mods-enabled/{{ item }}.load"
+      loop: [dav_fs, ssl]
+      notify: Reiniciar Apache
+
+    - name: Escutar somente no loopback
+      ansible.builtin.copy:
+        dest: /etc/apache2/ports.conf
+        content: "Listen 127.0.0.1:8443 https\n"
+        mode: "0644"
+      notify: Reiniciar Apache
+
+    - name: Desativar o site padrão
+      ansible.builtin.file:
+        path: /etc/apache2/sites-enabled/000-default.conf
+        state: absent
+      notify: Reiniciar Apache
+
+    - name: Configurar o WebDAV
+      ansible.builtin.template:
+        src: webdav.conf.j2
+        dest: /etc/apache2/sites-available/andbible.conf
+        mode: "0644"
+      notify: Reiniciar Apache
+
+    - name: Ativar o site do piloto
+      ansible.builtin.file:
+        src: /etc/apache2/sites-available/andbible.conf
+        path: /etc/apache2/sites-enabled/andbible.conf
+        state: link
+      notify: Reiniciar Apache
+
+    - name: Validar a configuração Apache
+      ansible.builtin.command: apache2ctl configtest
+      changed_when: false
+
+    - name: Aplicar o site antes de publicar
+      ansible.builtin.meta: flush_handlers
+
+    - name: Garantir Apache ativo
+      ansible.builtin.systemd_service:
+        name: apache2
+        enabled: true
+        state: started
+
+    - name: Conferir que o WebDAV exige autenticação
+      ansible.builtin.uri:
+        url: "https://127.0.0.1:8443/dav/{{ item }}"
+        method: PROPFIND
+        headers:
+          Depth: "0"
+        validate_certs: false
+        status_code: 401
+        use_proxy: false
+      loop: "{{ andbible_contas }}"
+
+    - name: Ler a configuração de publicação privada
+      ansible.builtin.command: tailscale serve status
+      register: andbible_serve
+      changed_when: false
+      no_log: true
+
+    - name: Publicar o WebDAV na tailnet com certificado HTTPS
+      ansible.builtin.command:
+        argv: [tailscale, serve, --bg, --https=443, "{{ andbible_proxy }}"]
+      when: andbible_proxy not in andbible_serve.stdout
+      no_log: true
+
+  handlers:
+    - name: Reiniciar resolved
+      ansible.builtin.systemd_service:
+        name: systemd-resolved
+        state: restarted
+
+    - name: Reiniciar Apache
+      ansible.builtin.systemd_service:
+        name: apache2
+        state: restarted
+        enabled: true

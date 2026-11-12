@@ -1,0 +1,5 @@
+# Token existente do lab@pve; nunca o token da produção.
+proxmox_endpoint = "https://<proxmox_host>:8006/"
+proxmox_api_token = "lab@pve!terraform=<segredo>"
+node_name = "proxmox"
+ssh_public_key = "ssh-ed25519 <chave-publica-do-lab>"
