@@ -28,6 +28,10 @@ modules/          módulos Terraform reaproveitados entre experimentos
 Roles e módulos da produção **não** são importados: copie o que precisar.
 Acoplar os repos traria de volta o risco que a separação existe para evitar.
 
+## Verificações locais
+
+Use os [checks locais](docs/verificacoes-locais.md) para verificar a revisão do PR.
+
 ## Fluxo de mudança
 
 As instruções dos agentes estão no [AGENTS.md](AGENTS.md), com orientações
