@@ -25,6 +25,7 @@ CONSUMIDORES_PROXMOX = {EXPERIMENTOS / "audiobookshelf", EXPERIMENTOS / "coolify
 DNS = EXPERIMENTOS / "lxc-dns"
 EXEMPLO_CI = EXPERIMENTOS / "coolify-hetzner/exemplo-ci"
 INICIO_AWS = Path("bootstrap/aws.sh")
+WORKFLOWS = Path(".forgejo/workflows")
 DIRETORIOS_TERRAFORM = {"terraform", "terraform-backup", "bootstrap", "consumidor"}
 
 
@@ -75,8 +76,15 @@ def terraform(copia, roots, formatar, ambiente, espelho):
             "}\n"
         )
     else:
-        config.touch()
-    ambiente = {**ambiente, "TF_CLI_CONFIG_FILE": str(config), "TF_IN_AUTOMATION": "1"}
+        cache = Path(ambiente["HOME"]) / "terraform-plugin-cache"
+        cache.mkdir()
+        config.write_text(f"plugin_cache_dir = {json.dumps(str(cache))}\n")
+    ambiente = {
+        **ambiente,
+        "TF_CLI_CONFIG_FILE": str(config),
+        "TF_IN_AUTOMATION": "1",
+        "TF_REGISTRY_DISCOVERY_RETRY": "4",
+    }
     executar(["terraform", "version"], copia, ambiente)
     for pasta in sorted(formatar):
         executar(["terraform", "fmt", "-check", "-diff", "-no-color"], copia / pasta, ambiente)
@@ -115,10 +123,14 @@ def selecionar(copia, caminhos, perfil):
     modulo_proxmox = False
     exemplo_ci = False
     inicio_aws = False
+    todos = perfil == "completo"
     for caminho in caminhos:
+        if caminho == Path("verificar.py") or caminho.is_relative_to(WORKFLOWS):
+            todos = True
+            continue
         if (
             caminho.suffix == ".md" or caminho.name == ".gitignore"
-            or caminho in {Path("vault.yml.example"), Path("verificar.py")}
+            or caminho == Path("vault.yml.example")
         ):
             continue
         if caminho == INICIO_AWS:
@@ -140,7 +152,7 @@ def selecionar(copia, caminhos, perfil):
             experimentos.add(Path(*caminho.parts[:2]))
         else:
             raise ValueError(f"Caminho sem regra de seleção: {caminho}")
-    if perfil == "completo" or Path("verificar.py") in caminhos:
+    if todos:
         experimentos.update(
             pasta.relative_to(copia) for pasta in (copia / EXPERIMENTOS).iterdir()
             if pasta.is_dir() and pasta.name != ROADMAP.name

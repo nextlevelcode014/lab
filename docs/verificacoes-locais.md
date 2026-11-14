@@ -21,7 +21,7 @@ exige classificação, e qualquer falha de ferramenta interrompe o comando.
 | Experimento com Ansible | Sintaxe dos playbooks com `ansible-playbook -i localhost, --syntax-check` | Inventário fictício e configuração isolada |
 | Código no `lxc-dns` | Também roda `test_estado.py` e verifica a sintaxe Python dos scripts do experimento | O teste usa `systemctl --root` numa árvore temporária |
 | `bootstrap/aws.sh` | `bash -n` | Checa a sintaxe sem executar o script |
-| `verificar.py` | Todos os checks locais | Mesmo efeito dos checks individuais |
+| `verificar.py` ou `.forgejo/workflows/` | Todos os checks locais | Mesmo efeito dos checks individuais |
 | Markdown, `.gitignore`, template do vault e exemplo de CI do Coolify | Conferência de valores privados no diff | Revisão do exemplo de CI é manual |
 
 O exercício `10-formatar-e-validar` contém erros intencionais em
@@ -33,6 +33,29 @@ A conferência de privacidade roda nos dois perfis. Ela busca nomes de
 tailnet e IPv4 Tailscale nas linhas acrescentadas, com exceções para os
 endereços genéricos e para o domínio fictício do teste DNS. Mostra apenas os
 caminhos suspeitos. Revise também os demais dados sensíveis antes de publicar.
+
+## Execução em pull requests
+
+O workflow `.forgejo/workflows/pull-request.yml` inicia quando o PR é
+aberto, reaberto ou recebe novos commits. Ele usa o Git HTTPS público do
+`lab` para buscar a base e a ref do PR no mesmo fetch, confere os dois SHAs
+e executa
+`python3 verificar.py pr <base> <head> --colecoes /usr/share/ansible/collections`.
+O check **Verificações de PR** também roda para mudanças documentais.
+Um evento mais recente do mesmo PR cancela o anterior. O resumo registra o
+checkout, a seleção dos checks, a imagem do executor e o resultado.
+
+Se a base `main` avançar, rode na branch do PR:
+
+```bash
+git fetch origin
+git merge origin/main
+git push
+```
+
+A atualização dispara `synchronize`. Antes do merge, compare os dois SHAs
+do resumo com o head do PR e a ponta da branch de destino. O comando
+“Re-run” de uma execução antiga usa o evento daquela execução.
 
 ## Dependências
 
@@ -53,8 +76,11 @@ python3 verificar.py completo origin/main HEAD --espelho-providers /caminho/espe
 
 O espelho deve ter a estrutura de um
 [filesystem mirror do Terraform](https://developer.hashicorp.com/terraform/cli/config/config-file#filesystem_mirror).
-Se faltar uma versão do lock, a inicialização falha. O ambiente temporário
-descarta configuração e variáveis da sessão, incluindo credenciais,
+Se faltar uma versão do lock, a inicialização falha. Quando usa o registry,
+cada execução reaproveita os providers entre os roots em um cache temporário
+e o cliente Terraform tenta novamente erros transitórios de conexão. Os locks
+ficam em modo somente leitura. O ambiente temporário descarta configuração
+e variáveis da sessão, incluindo credenciais,
 inventário operacional e configurações de proxy.
 
 Para integração DNS por namespaces e ensaios com ambientes, siga o
