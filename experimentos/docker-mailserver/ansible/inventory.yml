@@ -1,0 +1,4 @@
+# Lê os recursos ansible_host do state do terraform deste experimento.
+# Caminho relativo ao cwd: rode o ansible-playbook de dentro de ansible/.
+plugin: cloud.terraform.terraform_provider
+project_path: ../terraform

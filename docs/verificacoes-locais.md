@@ -17,7 +17,7 @@ exige classificação, e qualquer falha de ferramenta interrompe o comando.
 | Alteração | Check | Efeito e dependências |
 |---|---|---|
 | Código de experimento | Formatação Terraform no root e nos módulos internos, `terraform init -backend=false -input=false -lockfile=readonly` e `terraform validate` em cada root do experimento | Providers fixados pelo lock. Inicialização pode baixar providers para a cópia temporária |
-| Código em `modules/proxmox-vm` | Formatação do módulo e checks de `audiobookshelf` e `coolify` | Acrescente novos consumidores em `verificar.py` |
+| Código em `modules/proxmox-vm` | Formatação do módulo e checks de `audiobookshelf`, `coolify` e `docker-mailserver` | Acrescente novos consumidores em `verificar.py` |
 | Experimento com Ansible | Sintaxe dos playbooks com `ansible-playbook -i localhost, --syntax-check` | Inventário fictício e configuração isolada |
 | Código no `lxc-dns` | Também roda `test_estado.py` e verifica a sintaxe Python dos scripts do experimento | O teste usa `systemctl --root` numa árvore temporária |
 | `bootstrap/aws.sh` | `bash -n` | Checa a sintaxe sem executar o script |

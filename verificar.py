@@ -21,7 +21,11 @@ FIXTURES_DNS = {"b/experimentos/lxc-dns/ansible/roles/lxc_dns/tests/integracao.p
 EXPERIMENTOS = Path("experimentos")
 ROADMAP = EXPERIMENTOS / "roadmap-terraform"
 MODULO_PROXMOX = Path("modules/proxmox-vm")
-CONSUMIDORES_PROXMOX = {EXPERIMENTOS / "audiobookshelf", EXPERIMENTOS / "coolify"}
+CONSUMIDORES_PROXMOX = {
+    EXPERIMENTOS / "audiobookshelf",
+    EXPERIMENTOS / "coolify",
+    EXPERIMENTOS / "docker-mailserver",
+}
 DNS = EXPERIMENTOS / "lxc-dns"
 EXEMPLO_CI = EXPERIMENTOS / "coolify-hetzner/exemplo-ci"
 INICIO_AWS = Path("bootstrap/aws.sh")
