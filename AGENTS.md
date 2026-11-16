@@ -81,6 +81,25 @@ Antes de commitar: `terraform fmt -recursive` e `terraform validate` no
 experimento com código Terraform alterado. Escolha as verificações conforme
 o efeito; uma revisão documental não exige provisionar ambientes.
 
+## Acompanhamento do trabalho por etapas
+
+- Antes de editar ou executar, diga o objetivo da etapa, em qual
+  experimento e ambiente ela acontece, por que vem agora e como o resultado
+  será verificado. Em tarefas com várias etapas, apresente a sequência
+  em poucas linhas para o responsável poder acompanhar.
+- Durante o trabalho, avise ao concluir uma etapa relevante e antes de
+  operações com impacto no ambiente. Diga o que foi feito, o que a
+  verificação mostrou e qual é o próximo passo. Explique escolhas que
+  afetem a configuração, o isolamento ou o resultado esperado. Se houver
+  falha, bloqueio ou mudança de plano, avise assim que isso mudar o rumo
+  do trabalho e explique como pretende seguir.
+- Agrupe comandos rotineiros na mesma atualização. Quando o responsável
+  precisar executar um comando, indique o diretório, o efeito esperado e
+  como reconhecer o resultado. Continue as etapas já autorizadas após
+  informar o progresso. Peça autorização quando a próxima operação exigir.
+- Na entrega, resuma o que foi concluído, o que foi verificado e o que
+  ainda depende de execução ou decisão do responsável.
+
 ## Fluxo e evidências
 
 Siga o [contrato de risco e evidências do infra](https://forge.nextlevelcode.pro/nextlevelcode/infra/src/commit/ac72e0a78b42f9c1779dafc578904da16dda4659/docs/fluxo-de-mudanca.md),
