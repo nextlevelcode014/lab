@@ -1,0 +1,6 @@
+---
+coolify_version: "4.4.7"
+# O checksum fixa o instalador revisado. Se o CDN mudar, a instalação para;
+# revise o script e o checksum em PR antes de aceitar a mudança.
+coolify_installer_url: https://cdn.coollabs.io/coolify/install.sh
+coolify_installer_checksum: sha256:c221f81e0bc9b47541f47bf671da76c79cfb61ce4741c3cb0800d7a18b99f137

@@ -1,0 +1,3 @@
+# Execute o Ansible dentro de ansible/: este state é só do coolify-ssh.
+plugin: cloud.terraform.terraform_provider
+project_path: ../terraform

@@ -1,0 +1,156 @@
+---
+- name: Conferir o sistema ensaiado
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Ubuntu'
+      - ansible_facts.distribution_version == '24.04'
+      - ansible_facts.user_uid == 0
+    fail_msg: "Esta configuração exige Ubuntu 24.04 e execução como root via become."
+
+- name: Verificar se esta role já iniciou a instalação
+  ansible.builtin.stat:
+    path: /data/coolify/source/.ansible-managed-version
+  register: coolify_managed
+
+- name: Verificar se já existe uma instalação do Coolify
+  ansible.builtin.stat:
+    path: /data/coolify/source/.env
+  register: coolify_env
+
+- name: Recusar uma instalação que não pertence a esta role
+  ansible.builtin.assert:
+    that: coolify_managed.stat.exists or not coolify_env.stat.exists
+    fail_msg: "Já existe um Coolify não gerenciado por esta role. Não será sobrescrito."
+
+- name: Conferir a versão gerenciada
+  when: coolify_managed.stat.exists
+  block:
+    - name: Ler a versão gerenciada
+      ansible.builtin.slurp:
+        src: /data/coolify/source/.ansible-managed-version
+      register: coolify_managed_version
+
+    - name: Recusar upgrade implícito
+      ansible.builtin.assert:
+        that: (coolify_managed_version.content | b64decode | trim) == coolify_version
+        fail_msg: "A versão mudou. Upgrade exige procedimento e autorização próprios."
+
+- name: Conferir que o primeiro alvo está livre
+  when: not coolify_managed.stat.exists
+  block:
+    - name: Procurar serviços nas portas dos sites
+      ansible.builtin.command: ss -H -ltn '( sport = :80 or sport = :443 )'
+      register: coolify_web_ports
+      changed_when: false
+
+    - name: Procurar o daemon Docker
+      ansible.builtin.stat:
+        path: /var/run/docker.sock
+      register: coolify_docker_socket
+
+    - name: Listar containers existentes
+      ansible.builtin.command: docker ps --all --quiet
+      register: coolify_existing_containers
+      changed_when: false
+      when: coolify_docker_socket.stat.exists
+
+    - name: Exigir servidor novo para o primeiro ensaio
+      ansible.builtin.assert:
+        that:
+          - coolify_web_ports.stdout == ''
+          - coolify_existing_containers.stdout | default('') == ''
+        fail_msg: "Há serviços web ou containers neste host. O ensaio exige servidor livre."
+
+- name: Preparar o diretório do Coolify
+  ansible.builtin.file:
+    path: /data/coolify/source
+    state: directory
+    owner: "9999"
+    group: root
+    mode: "0700"
+
+# Antes de executar o instalador: ele inclui o custom já no primeiro up.
+- name: Restringir as portas administrativas ao loopback
+  ansible.builtin.copy:
+    src: docker-compose.custom.yml
+    dest: /data/coolify/source/docker-compose.custom.yml
+    owner: "9999"
+    group: root
+    mode: "0600"
+  register: coolify_override
+
+- name: Registrar a versão autorizada antes de iniciar
+  ansible.builtin.copy:
+    content: "{{ coolify_version }}\n"
+    dest: /data/coolify/source/.ansible-managed-version
+    owner: "9999"
+    group: root
+    mode: "0600"
+
+- name: Baixar o instalador oficial com checksum
+  ansible.builtin.get_url:
+    url: "{{ coolify_installer_url }}"
+    checksum: "{{ coolify_installer_checksum }}"
+    dest: /root/coolify-install.sh
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Instalar a versão fixada do Coolify
+  ansible.builtin.command:
+    argv:
+      - bash
+      - /root/coolify-install.sh
+      - "{{ coolify_version }}"
+    creates: /data/coolify/source/.ansible-install-complete
+  environment:
+    USER: root
+    AUTOUPDATE: "false"
+  register: coolify_install
+
+- name: Reaplicar uma alteração de portas em instalação concluída
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - /data/coolify/source/.env
+      - -f
+      - /data/coolify/source/docker-compose.yml
+      - -f
+      - /data/coolify/source/docker-compose.prod.yml
+      - -f
+      - /data/coolify/source/docker-compose.custom.yml
+      - up
+      - --detach
+      - --remove-orphans
+      - --wait
+      - --wait-timeout
+      - "180"
+  environment:
+    LATEST_IMAGE: "{{ coolify_version }}"
+  when: coolify_override.changed and not coolify_install.changed
+  changed_when: true
+
+# O instalador aplica chmod -R 700 em source/. Reponha o modo desejado
+# agora para que a segunda execução não detecte um falso drift de permissão.
+- name: Ajustar as permissões dos arquivos gerenciados após o instalador
+  ansible.builtin.file:
+    path: "/data/coolify/source/{{ item }}"
+    owner: "9999"
+    group: root
+    mode: "0600"
+  loop:
+    - docker-compose.custom.yml
+    - .ansible-managed-version
+
+- name: Verificar o resultado no host
+  ansible.builtin.import_tasks: verificar.yml
+
+- name: Marcar a instalação verificada como concluída
+  ansible.builtin.copy:
+    content: "{{ coolify_version }}\n"
+    dest: /data/coolify/source/.ansible-install-complete
+    owner: "9999"
+    group: root
+    mode: "0600"

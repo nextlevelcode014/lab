@@ -1,0 +1,69 @@
+---
+- name: Esperar o Coolify ficar saudável
+  ansible.builtin.command:
+    argv: [docker, inspect, --format, '{{ "{{.State.Health.Status}}" }}', coolify]
+  register: coolify_health
+  changed_when: false
+  until: coolify_health.rc == 0 and coolify_health.stdout == 'healthy'
+  retries: 60
+  delay: 5
+
+- name: Ler a imagem do Coolify
+  ansible.builtin.command:
+    argv: [docker, inspect, --format, '{{ "{{.Config.Image}}" }}', coolify]
+  register: coolify_image
+  changed_when: false
+
+- name: Ler somente as portas publicadas pelo Coolify
+  ansible.builtin.command:
+    argv: [docker, inspect, --format, '{{ "{{json .HostConfig.PortBindings}}" }}', coolify]
+  register: coolify_bindings
+  changed_when: false
+
+- name: Exigir a versão fixada e somente portas locais
+  vars:
+    coolify_expected_bindings:
+      8080/tcp:
+        - HostIp: 127.0.0.1
+          HostPort: "8000"
+      6001/tcp:
+        - HostIp: 127.0.0.1
+          HostPort: "6001"
+      6002/tcp:
+        - HostIp: 127.0.0.1
+          HostPort: "6002"
+  ansible.builtin.assert:
+    that:
+      - coolify_image.stdout.endswith(':' ~ coolify_version)
+      - (coolify_bindings.stdout | from_json) == coolify_expected_bindings
+    fail_msg: "Versão ou portas inesperadas. Não publique o painel; confira o override e os logs."
+
+- name: Conferir a saúde HTTP pelo loopback do servidor
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8000/api/health
+    status_code: 200
+
+- name: Contar domínios configurados para publicar o painel no proxy
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - coolify-db
+      - psql
+      - -U
+      - coolify
+      - -d
+      - coolify
+      - -Atc
+      - "select count(*) from instance_settings where nullif(btrim(fqdn), '') is not null"
+  register: coolify_dashboard_domains
+  changed_when: false
+
+- name: Exigir que o painel não tenha domínio público configurado
+  ansible.builtin.assert:
+    that: coolify_dashboard_domains.stdout == '0'
+    fail_msg: "Remova o Domain da instância: ele publica o painel em 80/443, fora do túnel."
+
+- name: Conferir que a atualização automática está desativada
+  ansible.builtin.command: grep -qx AUTOUPDATE=false /data/coolify/source/.env
+  changed_when: false

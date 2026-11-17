@@ -1,0 +1,7 @@
+# Cole em um recurso Docker Compose do Coolify. Sem ports: o acesso deve
+# passar pelo proxy do Coolify e pelo domínio configurado no painel.
+services:
+  web:
+    image: traefik/whoami:v1.11.0
+    expose:
+      - "80"

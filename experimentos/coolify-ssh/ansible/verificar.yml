@@ -1,0 +1,28 @@
+---
+# Somente leitura remota; ainda exige autorização para acessar o ambiente.
+- name: Verificar o Coolify do lab por SSH
+  hosts: coolify
+  become: true
+  gather_facts: false
+  vars_files:
+    - roles/coolify/defaults/main.yml
+
+  pre_tasks:
+    - name: Exigir o inventário de um único host deste experimento
+      ansible.builtin.assert:
+        that:
+          - ansible_play_hosts_all | length == 1
+          - lab_experimento | default('') == 'coolify-ssh'
+
+    - name: Conferir a identificação do lab
+      ansible.builtin.command: cat /etc/lab-coolify-ssh
+      register: lab_identificacao
+      changed_when: false
+
+    - name: Confirmar o alvo
+      ansible.builtin.assert:
+        that: lab_identificacao.stdout == 'coolify-ssh'
+
+  tasks:
+    - name: Verificar versão, portas e saúde
+      ansible.builtin.import_tasks: roles/coolify/tasks/verificar.yml

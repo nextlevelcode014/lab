@@ -1,0 +1,47 @@
+---
+- name: Configurar o Coolify por SSH no lab
+  hosts: coolify
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Exigir o inventário de um único host deste experimento
+      ansible.builtin.assert:
+        that:
+          - ansible_play_hosts_all | length == 1
+          - lab_experimento | default('') == 'coolify-ssh'
+        fail_msg: "Use somente o inventário do coolify-ssh; este playbook não atende produção."
+
+    - name: Esperar o SSH
+      ansible.builtin.wait_for_connection:
+        timeout: 600
+
+    - name: Esperar o primeiro boot terminar
+      ansible.builtin.command: cloud-init status --wait --format json
+      register: lab_cloud_init
+      changed_when: false
+      failed_when: >-
+        lab_cloud_init.rc not in [0, 2]
+        or (lab_cloud_init.stdout | from_json).errors | length > 0
+
+    - name: Ler a identificação instalada pelo cloud-init do lab
+      ansible.builtin.command: cat /etc/lab-coolify-ssh
+      register: lab_identificacao
+      changed_when: false
+
+    - name: Confirmar a identificação do alvo
+      ansible.builtin.assert:
+        that: lab_identificacao.stdout == 'coolify-ssh'
+
+    - name: Coletar fatos
+      ansible.builtin.setup:
+
+  roles:
+    - coolify
+
+  post_tasks:
+    - name: Acesso pelo túnel
+      ansible.builtin.debug:
+        msg: >-
+          Abra http://127.0.0.1:8000 com o túnel SSH ativo e crie a conta
+          de admin imediatamente. Mantenha o domínio da instância vazio.

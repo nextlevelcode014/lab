@@ -1,0 +1,17 @@
+#cloud-config
+# Só prepara o acesso e a identificação do lab. Coolify vem pelo Ansible.
+hostname: ${hostname}
+users:
+  - name: lab
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+ssh_pwauth: false
+write_files:
+  - path: /etc/lab-coolify-ssh
+    owner: root:root
+    permissions: "0644"
+    content: |
+      coolify-ssh

@@ -1,0 +1,7 @@
+# Token exclusivo do projeto lab, nunca o do projeto de produção.
+hcloud_token   = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+ssh_public_key = "ssh-ed25519 AAAA... lab"
+
+# Substitua pelo seu IPv4 público de saída; este endereço é só um exemplo.
+# Se mudar de conexão, atualize a lista e aplique o firewall antes de reconectar.
+ssh_source_cidrs = ["203.0.113.10/32"]

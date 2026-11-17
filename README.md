@@ -51,6 +51,7 @@ para trabalhar neste repositório estão nos arquivos versionados acima.
 | [lxc-dns](experimentos/lxc-dns/README.md) | Proxmox (LXC 902) | DNS público, MagicDNS, persistência e rollback com Docker; execução depende de autorização |
 | [coolify](experimentos/coolify/README.md) | Proxmox (VM 900) | Coolify como PaaS self-hosted |
 | [coolify-hetzner](experimentos/coolify-hetzner/README.md) | Hetzner (cx23, projeto lab) | Coolify com IP público: deploy de site e TLS |
+| [coolify-ssh](experimentos/coolify-ssh/README.md) | Hetzner (Ubuntu 24.04, projeto lab) | Instalação com Ansible, painel por túnel SSH e deploy sem Tailscale |
 | [docker-mailserver](experimentos/docker-mailserver/README.md) | Proxmox (VM 903) | SMTP e IMAP com TLS, entrega local e restauração |
 | [audiobookshelf](experimentos/audiobookshelf/README.md) | Proxmox (VM 901) | Audiobookshelf: biblioteca, app no celular e backup que volta |
 | [roadmap-terraform](experimentos/roadmap-terraform/README.md) | Local ou Proxmox (VMs 990–999) | Exercícios do roadmap.sh de Terraform, um por tópico |

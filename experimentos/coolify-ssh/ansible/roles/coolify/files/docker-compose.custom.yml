@@ -1,0 +1,8 @@
+# !override substitui a lista inteira. Sem isso, o merge pode manter
+# também as portas públicas herdadas do Compose oficial.
+services:
+  coolify:
+    ports: !override
+      - "127.0.0.1:8000:8080"
+      - "127.0.0.1:6001:6001"
+      - "127.0.0.1:6002:6002"
