@@ -19,11 +19,11 @@ services:
       - ./dados/tls:/certificados:ro
     networks:
       correio:
-        ipv4_address: 172.30.85.2
+        ipv4_address: ${DMS_ENSAIO_IPV4:-172.30.85.2}
 
 networks:
   correio:
     internal: true
     ipam:
       config:
-        - subnet: 172.30.85.0/24
+        - subnet: ${DMS_ENSAIO_SUBREDE:-172.30.85.0/24}

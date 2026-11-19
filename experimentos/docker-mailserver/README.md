@@ -138,7 +138,54 @@ cd /srv/docker-mailserver
 docker compose up -d
 ```
 
-## 4. Destruir a VM
+## 4. Ensaiar aliases e catch-all antes de migrar o domínio principal
+
+O cenário da [issue infra #115](https://forge.nextlevelcode.pro/nextlevelcode/infra/issues/115)
+usa endereços sintéticos em `example.test`. A imagem fixada é a mesma do
+Mailserver do [infra na revisão 467c795](https://forge.nextlevelcode.pro/nextlevelcode/infra/src/commit/467c795cadd3a41c22537a00a09e2da065d7f587/ansible/roles/mailserver/defaults/main.yml).
+O Compose e os dados pertencem ao experimento do lab. O certificado é
+autoassinado, o filtro de spam fica desativado e a entrega acontece na
+rede interna do Docker. O escopo é o roteamento SMTP para caixas locais.
+
+| Destinatário SMTP | Caixa esperada | Rota |
+|---|---|---|
+| `hello@example.test` e `work@example.test` | `bruno@example.test` | Catch-all |
+| `sem-cadastro@example.test` | `bruno@example.test` | Catch-all |
+| `support@example.test` | `ana@example.test` | Alias explícito |
+| `ana@example.test` e `bruno@example.test` | A própria caixa | Entrega à conta |
+
+Mantenha no `postfix-virtual.cf` os aliases específicos e os mapeamentos
+de cada conta para si mesma antes do curinga `@example.test`. O Postfix
+consulta o mapa de aliases antes da lista de contas. Sem o mapeamento
+explícito, o curinga pode levar o e-mail de uma conta real para a caixa
+do catch-all. [Guia de aliases do Docker Mailserver 17.0.0](https://github.com/docker-mailserver/docker-mailserver/blob/v17.0.0/docs/content/config/account-management/provisioner/file.md)
+
+Use Docker Engine local na VM do experimento. Depois de rodar o playbook
+da etapa 1, entre na VM e, em uma sessão root, confira a imagem disponível.
+
+```bash
+cd /srv/docker-mailserver
+docker image inspect "$(docker compose config --images)" --format '{{.Id}}'
+```
+
+Se a imagem ainda estiver ausente, use `docker compose pull` na janela
+autorizada para download. Confira que `image inspect` encontra a imagem
+fixada antes de iniciar.
+
+```bash
+bash ensaiar-catch-all.sh
+```
+
+O script cria um projeto temporário na rede interna `172.30.86.0/24`,
+com endereço `172.30.86.2` e sem portas publicadas. Ele usa a porta 25
+com STARTTLS e envelope de remetente vazio para ensaiar a entrega local
+com dados sintéticos. Pelo IMAP com TLS,
+confere o ID, o destinatário e o corpo de cada mensagem na caixa esperada
+e busca o mesmo ID na outra caixa. Confira seis linhas de entrega e a
+remoção do container e da rede temporários. Em caso de falha, o script
+mostra os logs do projeto e aponta os recursos se a limpeza falhar.
+
+## 5. Destruir a VM
 
 Da pasta `terraform`, confira os recursos no state. A destruição apaga
 também as caixas, os certificados, o backup local e os arquivos restaurados

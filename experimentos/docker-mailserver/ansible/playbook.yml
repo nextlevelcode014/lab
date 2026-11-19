@@ -111,3 +111,5 @@
       loop:
         - compose.yml
         - testar.py
+        - ensaiar-catch-all.sh
+        - postfix-virtual.catch-all.cf

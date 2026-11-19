@@ -1,0 +1,5 @@
+# Reserve os endereços de contas reais antes do curinga.
+ana@example.test ana@example.test
+bruno@example.test bruno@example.test
+support@example.test ana@example.test
+@example.test bruno@example.test
